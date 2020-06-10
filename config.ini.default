@@ -1,0 +1,16 @@
+
+[general]
+working_dir=/tmp/dbsync
+geodiffinfo_exe=geodiffinfo
+
+[mergin]
+username=john
+password=topsecret
+project=john/projectname
+sync_file=sync.gpkg
+
+[db]
+driver=postgres
+conn_info=
+modified=mergin_main
+base=mergin_base
