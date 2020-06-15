@@ -16,7 +16,7 @@ import tempfile
 
 import psycopg2
 
-from mergin import MerginClient
+from mergin import MerginClient, MerginProject
 
 
 config = configparser.ConfigParser()
@@ -87,6 +87,12 @@ def _print_changes_summary(summary):
         print("{:20} {:4} {:4} {:4}".format(item['table'], item['insert'], item['update'], item['delete']))
 
 
+def _get_project_version():
+    """ Returns the current version of the project """
+    mp = MerginProject(project_working_dir)
+    return mp.metadata["version"]
+
+
 def dbsync_pull():
     """ Downloads any changes from Mergin and applies them to the database """
 
@@ -118,6 +124,8 @@ def dbsync_pull():
     # TODO: when rebasing: apply local DB changes to gpkg  (base2our)
 
     mc.pull_project(project_working_dir)  # will do rebase as needed
+
+    print("Pulled new version from Mergin: " + _get_project_version())
 
     # simple case when there are no pending local changes - just apply whatever changes are coming
     _geodiff_create_changeset("sqlite", "", gpkg_basefile_old, gpkg_basefile, tmp_base2their)
@@ -179,6 +187,8 @@ def dbsync_push():
 
     # write to the server
     mc.push_project(project_working_dir)
+
+    print("Pushed new version to Mergin: " + _get_project_version())
 
     # update base schema in the DB
     _geodiff_apply_changeset(db_driver, db_conn_info, db_schema_base, tmp_changeset_file)
