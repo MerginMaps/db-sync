@@ -16,28 +16,72 @@ import tempfile
 
 import psycopg2
 
-from mergin import MerginClient, MerginProject
+from mergin import MerginClient, MerginProject, LoginError
 
 
-config = configparser.ConfigParser()
-config.read('config.ini')
+class DbSyncError(Exception):
+    pass
 
-project_working_dir = config['general']['working_dir']
-geodiffinfo_exe = config['general']['geodiffinfo_exe']
 
-mergin_url = 'https://public.cloudmergin.com'
-mergin_project = config['mergin']['project']
-mergin_username = config['mergin']['username']
-mergin_password = config['mergin']['password']
-mergin_sync_file = config['mergin']['sync_file']
+class Config:
+    """ Contains configuration of the sync """
 
-db_driver = config['db']['driver']
-db_conn_info = config['db']['conn_info']
-db_schema_modified = config['db']['modified']   # where local editing happens
-db_schema_base = config['db']['base']           # where only this script does changes
+    def __init__(self):
+        self.project_working_dir = None
+        self.geodiffinfo_exe = None
 
-if db_driver != "postgres":
-    raise ValueError("Only 'postgres' driver is currently supported")
+        self.mergin_url = 'https://public.cloudmergin.com'
+
+        self.mergin_username = None
+        self.mergin_password = None
+        self.mergin_sync_file = None
+
+        self.db_driver = None
+        self.db_conn_info = None
+        self.db_schema_modified = None
+        self.db_schema_base = None
+
+    def load(self, filename):
+        cfg = configparser.ConfigParser()
+        cfg.read(filename)
+
+        self.project_working_dir = cfg['general']['working_dir']
+        self.geodiffinfo_exe = cfg['general']['geodiffinfo_exe']
+
+        self.mergin_username = cfg['mergin']['username']
+        self.mergin_password = cfg['mergin']['password']
+        self.mergin_sync_file = cfg['mergin']['sync_file']
+
+        self.db_driver = cfg['db']['driver']
+        self.db_conn_info = cfg['db']['conn_info']
+        self.db_schema_modified = cfg['db']['modified']   # where local editing happens
+        self.db_schema_base = cfg['db']['base']           # where only this script does changes
+
+
+config = Config()
+
+
+def _check_config():
+    """ Makes sure that the configuration is valid, raises exceptions if not """
+    if config.db_driver != "postgres":
+        raise DbSyncError("Only 'postgres' driver is currently supported")
+
+
+def _check_has_working_dir():
+    if not os.path.exists(config.project_working_dir):
+        raise DbSyncError("The project working directory does not exist: " + config.project_working_dir)
+
+    if not os.path.exists(os.path.join(config.project_working_dir, '.mergin')):
+        raise DbSyncError("The project working directory does not seem to contain Mergin project: " + config.project_working_dir)
+
+
+def _check_has_sync_file():
+    """ Checks whether the dbsync environment is initialized already (so that we can pull/push).
+     Emits an exception if not initialized yet. """
+
+    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
+    if not os.path.exists(gpkg_full_path):
+        raise DbSyncError("The output GPKG file does not exist: " + gpkg_full_path)
 
 
 def _check_schema_exists(conn, schema_name):
@@ -48,13 +92,13 @@ def _check_schema_exists(conn, schema_name):
 
 def _geodiff_create_changeset(driver, conn_info, base, modified, changeset):
     subprocess.run(
-        [geodiffinfo_exe, "createChangesetEx", driver, conn_info, base, modified, changeset],
+        [config.geodiffinfo_exe, "createChangesetEx", driver, conn_info, base, modified, changeset],
         check=True, stderr=subprocess.PIPE)
 
 
 def _geodiff_apply_changeset(driver, conn_info, base, changeset):
     subprocess.run(
-        [geodiffinfo_exe, "applyChangesetEx", driver, conn_info, base, changeset],
+        [config.geodiffinfo_exe, "applyChangesetEx", driver, conn_info, base, changeset],
         check=True, stderr=subprocess.PIPE)
 
 
@@ -67,7 +111,7 @@ def _geodiff_list_changes_summary(changeset):
     if os.path.exists(tmp_output):
         os.remove(tmp_output)
     subprocess.run(
-        [geodiffinfo_exe, "listChangesSummary", changeset, tmp_output],
+        [config.geodiffinfo_exe, "listChangesSummary", changeset, tmp_output],
         check=True, stderr=subprocess.PIPE)
     with open(tmp_output) as f:
         out = json.load(f)
@@ -77,7 +121,7 @@ def _geodiff_list_changes_summary(changeset):
 
 def _geodiff_make_copy(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst):
     subprocess.run(
-        [geodiffinfo_exe, "makeCopy", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst],
+        [config.geodiffinfo_exe, "makeCopy", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst],
         check=True, stderr=subprocess.PIPE)
 
 
@@ -89,23 +133,26 @@ def _print_changes_summary(summary):
 
 def _get_project_version():
     """ Returns the current version of the project """
-    mp = MerginProject(project_working_dir)
+    mp = MerginProject(config.project_working_dir)
     return mp.metadata["version"]
 
 
 def dbsync_pull():
     """ Downloads any changes from Mergin and applies them to the database """
 
-    mc = MerginClient(mergin_url, login=mergin_username, password=mergin_password)
+    _check_has_working_dir()
+    _check_has_sync_file()
 
-    status_pull, status_push, _ = mc.project_status(project_working_dir)
+    mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+
+    status_pull, status_push, _ = mc.project_status(config.project_working_dir)
     if not status_pull['added'] and not status_pull['updated'] and not status_pull['removed']:
         print("No changes on Mergin.")
         return
     if status_push['added'] or status_push['updated'] or status_push['removed']:
-        raise ValueError("There are pending changes in the local directory - that should never happen! " + str(status_push))
+        raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
 
-    gpkg_basefile = os.path.join(project_working_dir, '.mergin', mergin_sync_file)
+    gpkg_basefile = os.path.join(config.project_working_dir, '.mergin', config.mergin_sync_file)
     gpkg_basefile_old = gpkg_basefile + "-old"
 
     # make a copy of the basefile in the current version (base) - because after pull it will be set to "their"
@@ -116,14 +163,14 @@ def dbsync_pull():
     tmp_base2their = os.path.join(tmp_dir, 'dbsync-pull-base2their')
 
     # find out our local changes in the database (base2our)
-    _geodiff_create_changeset(db_driver, db_conn_info, db_schema_base, db_schema_modified, tmp_base2our)
+    _geodiff_create_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, config.db_schema_modified, tmp_base2our)
 
     if os.path.getsize(tmp_base2our) != 0:
-        raise ValueError("Rebase not supported yet!")
+        raise DbSyncError("Rebase not supported yet!")
 
     # TODO: when rebasing: apply local DB changes to gpkg  (base2our)
 
-    mc.pull_project(project_working_dir)  # will do rebase as needed
+    mc.pull_project(config.project_working_dir)  # will do rebase as needed
 
     print("Pulled new version from Mergin: " + _get_project_version())
 
@@ -134,8 +181,8 @@ def dbsync_pull():
     summary = _geodiff_list_changes_summary(tmp_base2their)
     _print_changes_summary(summary)
 
-    _geodiff_apply_changeset(db_driver, db_conn_info, db_schema_base, tmp_base2their)
-    _geodiff_apply_changeset(db_driver, db_conn_info, db_schema_modified, tmp_base2their)
+    _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, tmp_base2their)
+    _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_modified, tmp_base2their)
 
     # TODO: when rebasing:
     # - createChangesetEx - using gpkg (their2our)
@@ -151,28 +198,28 @@ def dbsync_push():
     tmp_dir = tempfile.gettempdir()
     tmp_changeset_file = os.path.join(tmp_dir, 'dbsync-push-base2our')
 
-    gpkg_full_path = os.path.join(project_working_dir, mergin_sync_file)
-    if not os.path.exists(gpkg_full_path):
-        raise ValueError("The output GPKG file does not exist: " + gpkg_full_path)
+    _check_has_working_dir()
+    _check_has_sync_file()
 
-    mc = MerginClient(mergin_url, login=mergin_username, password=mergin_password)
+    mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
 
     # check there are no pending changes on server (or locally - which should never happen)
-    status_pull, status_push, _ = mc.project_status(project_working_dir)
+    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
+    status_pull, status_push, _ = mc.project_status(config.project_working_dir)
     if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
-        raise ValueError("There are pending changes on server - need to pull them first: " + str(status_pull))
+        raise DbSyncError("There are pending changes on server - need to pull them first: " + str(status_pull))
     if status_push['added'] or status_push['updated'] or status_push['removed']:
-        raise ValueError("There are pending changes in the local directory - that should never happen! " + str(status_push))
+        raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
 
-    conn = psycopg2.connect(db_conn_info)
+    conn = psycopg2.connect(config.db_conn_info)
 
-    if not _check_schema_exists(conn, db_schema_base):
-        raise ValueError("The base schema does not exist: " + db_schema_base)
-    if not _check_schema_exists(conn, db_schema_modified):
-        raise ValueError("The 'modified' schema does not exist: " + db_schema_modified)
+    if not _check_schema_exists(conn, config.db_schema_base):
+        raise DbSyncError("The base schema does not exist: " + config.db_schema_base)
+    if not _check_schema_exists(conn, config.db_schema_modified):
+        raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
 
     # get changes in the DB
-    _geodiff_create_changeset(db_driver, db_conn_info, db_schema_base, db_schema_modified, tmp_changeset_file)
+    _geodiff_create_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, config.db_schema_modified, tmp_changeset_file)
 
     if os.path.getsize(tmp_changeset_file) == 0:
         print("No changes in the database.")
@@ -186,54 +233,56 @@ def dbsync_push():
     _geodiff_apply_changeset("sqlite", "", gpkg_full_path, tmp_changeset_file)
 
     # write to the server
-    mc.push_project(project_working_dir)
+    mc.push_project(config.project_working_dir)
 
     print("Pushed new version to Mergin: " + _get_project_version())
 
     # update base schema in the DB
-    _geodiff_apply_changeset(db_driver, db_conn_info, db_schema_base, tmp_changeset_file)
+    _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, tmp_changeset_file)
 
 
 def dbsync_init():
     """ Initialize the dbsync so that it is possible to do two-way sync between Mergin and a database """
 
-    if not os.path.exists(project_working_dir):
-        raise ValueError("The project working directory does not exist: " + project_working_dir)
+    _check_has_working_dir()
 
-    if not os.path.exists(os.path.join(project_working_dir, '.mergin')):
-        raise ValueError("The project working directory does not seem to contain Mergin project: " + project_working_dir)
-
-    gpkg_full_path = os.path.join(project_working_dir, mergin_sync_file)
+    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
     if os.path.exists(gpkg_full_path):
-        raise ValueError("The output GPKG file exists already: " + gpkg_full_path)
+        raise DbSyncError("The output GPKG file exists already: " + gpkg_full_path)
 
-    mc = MerginClient(mergin_url, login=mergin_username, password=mergin_password)
+    try:
+        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+    except LoginError:
+        raise DbSyncError("Unable to log in to Mergin: have you specified correct credentials in configuration file?")
 
     # check there are no pending changes on server (or locally - which should never happen)
-    status_pull, status_push, _ = mc.project_status(project_working_dir)
+    status_pull, status_push, _ = mc.project_status(config.project_working_dir)
     if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
-        raise ValueError("There are pending changes on server - need to pull them first: " + str(status_pull))
+        raise DbSyncError("There are pending changes on server - need to pull them first: " + str(status_pull))
     if status_push['added'] or status_push['updated'] or status_push['removed']:
-        raise ValueError("There are pending changes in the local directory - that should never happen! " + str(status_push))
+        raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
 
-    conn = psycopg2.connect(db_conn_info)
+    try:
+        conn = psycopg2.connect(config.db_conn_info)
+    except psycopg2.Error as e:
+        raise DbSyncError("Unable to connect to the database: " + str(e))
 
-    if _check_schema_exists(conn, db_schema_base):
-        raise ValueError("The base schema already exists: " + db_schema_base)
+    if _check_schema_exists(conn, config.db_schema_base):
+        raise DbSyncError("The base schema already exists: " + config.db_schema_base)
 
-    if not _check_schema_exists(conn, db_schema_modified):
-        raise ValueError("The 'modified' schema does not exist: " + db_schema_modified)
+    if not _check_schema_exists(conn, config.db_schema_modified):
+        raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
 
     # COPY: modified -> base
-    _geodiff_make_copy(db_driver, db_conn_info, db_schema_modified,
-                       db_driver, db_conn_info, db_schema_base)
+    _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
+                       config.db_driver, config.db_conn_info, config.db_schema_base)
 
     # COPY: modified -> gpkg
-    _geodiff_make_copy(db_driver, db_conn_info, db_schema_modified,
+    _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
                        "sqlite", "", gpkg_full_path)
 
     # upload gpkg to mergin (client takes care of storing metadata)
-    mc.push_project(project_working_dir)
+    mc.push_project(config.project_working_dir)
 
 
 def show_usage():
@@ -244,19 +293,36 @@ def show_usage():
     print("    dbsync pull        = will pull changes from mergin to DB")
 
 
+def load_config(config_filename):
+    if not os.path.exists(config_filename):
+        raise DbSyncError("The configuration file does not exist: " + config_filename)
+    config.load(config_filename)
+    _check_config()
+
+
 def main():
     if len(sys.argv) < 2:
         show_usage()
         return
 
-    if sys.argv[1] == 'init':
-        dbsync_init()
-    elif sys.argv[1] == 'push':
-        dbsync_push()
-    elif sys.argv[1] == 'pull':
-        dbsync_pull()
-    else:
-        show_usage()
+    config_filename = 'config.ini'
+
+    try:
+        load_config(config_filename)
+
+        if sys.argv[1] == 'init':
+            print("Initializing...")
+            dbsync_init()
+        elif sys.argv[1] == 'push':
+            print("Pushing...")
+            dbsync_push()
+        elif sys.argv[1] == 'pull':
+            print("Pulling...")
+            dbsync_pull()
+        else:
+            show_usage()
+    except DbSyncError as e:
+        print("Error: " + str(e))
 
 
 if __name__ == '__main__':
