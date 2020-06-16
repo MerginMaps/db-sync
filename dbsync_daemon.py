@@ -4,11 +4,19 @@
 # - pull
 # - push
 
+import configparser
 import time
 
 import dbsync
 
-sleep_time = dbsync.config['daemon']['sleep_time']
+filename = 'config.ini'
+
+dbsync.load_config(filename)
+
+# load daemon-specific bits
+cfg = configparser.ConfigParser()
+cfg.read(filename)
+sleep_time = int(cfg['daemon']['sleep_time'])
 
 while True:
 
