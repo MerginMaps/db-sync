@@ -19,6 +19,11 @@ import psycopg2
 from mergin import MerginClient, MerginProject, LoginError
 
 
+# set high logging level for geodiff (used by geodiffinfo executable)
+# so we get as much information as possible
+os.environ["GEODIFF_LOGGER_LEVEL"] = '4'   # 0 = nothing, 1 = errors, 2 = warning, 3 = info, 4 = debug
+
+
 class DbSyncError(Exception):
     pass
 
@@ -90,16 +95,23 @@ def _check_schema_exists(conn, schema_name):
     return cur.fetchone()[0]
 
 
+def _run_geodiff(cmd):
+    """ will run a command (with geodiffinfo) and report what got to stderr and raise exception
+    if the command returns non-zero exit code """
+    res = subprocess.run(cmd, stderr=subprocess.PIPE)
+    geodiff_stderr = res.stderr.decode()
+    if geodiff_stderr:
+        print("GEODIFF: " + geodiff_stderr)
+    if res.returncode != 0:
+        raise DbSyncError("geodiffinfo failed!\n" + str(cmd))
+
+
 def _geodiff_create_changeset(driver, conn_info, base, modified, changeset):
-    subprocess.run(
-        [config.geodiffinfo_exe, "createChangesetEx", driver, conn_info, base, modified, changeset],
-        check=True, stderr=subprocess.PIPE)
+    _run_geodiff([config.geodiffinfo_exe, "createChangesetEx", driver, conn_info, base, modified, changeset])
 
 
 def _geodiff_apply_changeset(driver, conn_info, base, changeset):
-    subprocess.run(
-        [config.geodiffinfo_exe, "applyChangesetEx", driver, conn_info, base, changeset],
-        check=True, stderr=subprocess.PIPE)
+    _run_geodiff([config.geodiffinfo_exe, "applyChangesetEx", driver, conn_info, base, changeset])
 
 
 def _geodiff_list_changes_summary(changeset):
@@ -110,9 +122,7 @@ def _geodiff_list_changes_summary(changeset):
     tmp_output = os.path.join(tmp_dir, 'dbsync-changeset-summary')
     if os.path.exists(tmp_output):
         os.remove(tmp_output)
-    subprocess.run(
-        [config.geodiffinfo_exe, "listChangesSummary", changeset, tmp_output],
-        check=True, stderr=subprocess.PIPE)
+    _run_geodiff([config.geodiffinfo_exe, "listChangesSummary", changeset, tmp_output])
     with open(tmp_output) as f:
         out = json.load(f)
     os.remove(tmp_output)
@@ -120,9 +130,7 @@ def _geodiff_list_changes_summary(changeset):
 
 
 def _geodiff_make_copy(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst):
-    subprocess.run(
-        [config.geodiffinfo_exe, "makeCopy", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst],
-        check=True, stderr=subprocess.PIPE)
+    _run_geodiff([config.geodiffinfo_exe, "makeCopy", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst])
 
 
 def _print_changes_summary(summary):
@@ -192,11 +200,65 @@ def dbsync_pull():
     os.remove(gpkg_basefile_old)
 
 
+def dbsync_status():
+    """ Figure out if there are any pending changes in the database or in Mergin """
+
+    _check_has_working_dir()
+    _check_has_sync_file()
+
+    # print basic information
+    mp = MerginProject(config.project_working_dir)
+    project_path = mp.metadata["name"]
+    local_version = mp.metadata["version"]
+    print("Working directory " + config.project_working_dir)
+    print("Mergin project " + project_path + " at local version " + local_version)
+    print("")
+    print("Checking status...")
+
+    mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+
+    # check if there are any pending changes on server
+    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
+    status_pull, status_push, _ = mc.project_status(config.project_working_dir)
+    if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
+        print("There are pending changes on server: " + str(status_pull))
+    else:
+        print("No pending changes on server.")
+
+    if status_push['added'] or status_push['updated'] or status_push['removed']:
+        raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
+
+    print("")
+    conn = psycopg2.connect(config.db_conn_info)
+
+    if not _check_schema_exists(conn, config.db_schema_base):
+        raise DbSyncError("The base schema does not exist: " + config.db_schema_base)
+    if not _check_schema_exists(conn, config.db_schema_modified):
+        raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
+
+    # get changes in the DB
+    tmp_dir = tempfile.gettempdir()
+    tmp_changeset_file = os.path.join(tmp_dir, 'dbsync-status-base2our')
+    if os.path.exists(tmp_changeset_file):
+        os.remove(tmp_changeset_file)
+    _geodiff_create_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, config.db_schema_modified, tmp_changeset_file)
+
+    if os.path.getsize(tmp_changeset_file) == 0:
+        print("No changes in the database.")
+    else:
+        print("There are changes in DB")
+        # summarize changes
+        summary = _geodiff_list_changes_summary(tmp_changeset_file)
+        _print_changes_summary(summary)
+
+
 def dbsync_push():
     """ Take changes in the 'modified' schema in the database and push them to Mergin """
 
     tmp_dir = tempfile.gettempdir()
     tmp_changeset_file = os.path.join(tmp_dir, 'dbsync-push-base2our')
+    if os.path.exists(tmp_changeset_file):
+        os.remove(tmp_changeset_file)
 
     _check_has_working_dir()
     _check_has_sync_file()
@@ -289,6 +351,7 @@ def show_usage():
     print("dbsync")
     print("")
     print("    dbsync init        = will create base schema in DB + create gpkg file in working copy")
+    print("    dbsync status      = will check whether there is anything to pull or push")
     print("    dbsync push        = will push changes from DB to mergin")
     print("    dbsync pull        = will pull changes from mergin to DB")
 
@@ -313,6 +376,8 @@ def main():
         if sys.argv[1] == 'init':
             print("Initializing...")
             dbsync_init()
+        elif sys.argv[1] == 'status':
+            dbsync_status()
         elif sys.argv[1] == 'push':
             print("Pushing...")
             dbsync_push()
