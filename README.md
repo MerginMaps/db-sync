@@ -10,8 +10,7 @@ That means you can:
 
 ### Installation
 
-1. Install [mergin-py-client](https://github.com/lutraconsulting/mergin-py-client)
-   (TODO: [add pip package](https://github.com/lutraconsulting/mergin-py-client/issues/54))
+1. Install Mergin client: `pip3 install mergin-client`
 2. download/clone this git repo
 
 ### How to use
@@ -28,6 +27,7 @@ Initialization:
 
 Once initialized:
 
+- run `python3 dbsync.py status' to see if there are any changes on Mergin server or in the database
 - run `python3 dbsync.py pull` to fetch data from Mergin and apply them to the database
 - run `python3 dbsync.py push` to fetch data from the database and push to Mergin
 
