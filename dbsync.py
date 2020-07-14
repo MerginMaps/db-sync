@@ -134,9 +134,24 @@ def _geodiff_make_copy(src_driver, src_conn_info, src, dst_driver, dst_conn_info
 
 
 def _print_changes_summary(summary):
+    """ Takes a geodiff JSON summary of changes and prints them """
     print("Changes:")
     for item in summary:
         print("{:20} {:4} {:4} {:4}".format(item['table'], item['insert'], item['update'], item['delete']))
+
+
+def _print_mergin_changes(diff_dict):
+    """ Takes a dictionary with format { 'added': [...], 'removed': [...], 'updated': [...] }
+    where each item is another dictionary with file details, e.g.:
+      { 'path': 'myfile.gpkg', size: 123456, ... }
+    and prints it in a way that's easy to parse for a human :-)
+    """
+    for item in diff_dict['added']:
+        print("  added:   " + item['path'])
+    for item in diff_dict['updated']:
+        print("  updated: " + item['path'])
+    for item in diff_dict['removed']:
+        print("  removed: " + item['path'])
 
 
 def _get_project_version():
@@ -206,8 +221,14 @@ def dbsync_status():
     _check_has_working_dir()
     _check_has_sync_file()
 
-    # print basic information
+    # get basic information
     mp = MerginProject(config.project_working_dir)
+    if mp.geodiff is None:
+        raise DbSyncError("Mergin client installation problem: geodiff not available")
+    status_push = mp.get_push_changes()
+    if status_push['added'] or status_push['updated'] or status_push['removed']:
+        raise DbSyncError("Pending changes in the local directory - that should never happen! " + str(status_push))
+
     project_path = mp.metadata["name"]
     local_version = mp.metadata["version"]
     print("Working directory " + config.project_working_dir)
@@ -215,18 +236,17 @@ def dbsync_status():
     print("")
     print("Checking status...")
 
-    mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
-
     # check if there are any pending changes on server
-    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
-    status_pull, status_push, _ = mc.project_status(config.project_working_dir)
+    mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+    server_info = mc.project_info(project_path, since=local_version)
+    print("Server is at version " + server_info["version"])
+
+    status_pull = mp.get_pull_changes(server_info["files"])
     if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
-        print("There are pending changes on server: " + str(status_pull))
+        print("There are pending changes on server:")
+        _print_mergin_changes(status_pull)
     else:
         print("No pending changes on server.")
-
-    if status_push['added'] or status_push['updated'] or status_push['removed']:
-        raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
 
     print("")
     conn = psycopg2.connect(config.db_conn_info)
