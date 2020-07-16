@@ -323,14 +323,18 @@ def dbsync_push():
     _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, tmp_changeset_file)
 
 
-def dbsync_init():
+def dbsync_init(from_gpkg=True):
     """ Initialize the dbsync so that it is possible to do two-way sync between Mergin and a database """
 
     _check_has_working_dir()
 
     gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
-    if os.path.exists(gpkg_full_path):
-        raise DbSyncError("The output GPKG file exists already: " + gpkg_full_path)
+    if from_gpkg:
+        if not os.path.exists(gpkg_full_path):
+            raise DbSyncError("The input GPKG file does not exist: " + gpkg_full_path)
+    else:
+        if os.path.exists(gpkg_full_path):
+            raise DbSyncError("The output GPKG file exists already: " + gpkg_full_path)
 
     try:
         mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
@@ -352,19 +356,37 @@ def dbsync_init():
     if _check_schema_exists(conn, config.db_schema_base):
         raise DbSyncError("The base schema already exists: " + config.db_schema_base)
 
-    if not _check_schema_exists(conn, config.db_schema_modified):
-        raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
+    if from_gpkg:
+        # we have an existing GeoPackage in our Mergin project and we want to initialize database
 
-    # COPY: modified -> base
-    _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
-                       config.db_driver, config.db_conn_info, config.db_schema_base)
+        if _check_schema_exists(conn, config.db_schema_modified):
+            raise DbSyncError("The 'modified' schema already exists: " + config.db_schema_modified)
 
-    # COPY: modified -> gpkg
-    _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
-                       "sqlite", "", gpkg_full_path)
+        # COPY: gpkg -> modified
+        _geodiff_make_copy("sqlite", "", gpkg_full_path,
+                           config.db_driver, config.db_conn_info, config.db_schema_modified)
 
-    # upload gpkg to mergin (client takes care of storing metadata)
-    mc.push_project(config.project_working_dir)
+        # COPY: modified -> base
+        _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
+                           config.db_driver, config.db_conn_info, config.db_schema_base)
+
+    else:
+        # we have an existing schema in database with tables and we want to initialize geopackage
+        # within our a Mergin project
+
+        if not _check_schema_exists(conn, config.db_schema_modified):
+            raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
+
+        # COPY: modified -> base
+        _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
+                           config.db_driver, config.db_conn_info, config.db_schema_base)
+
+        # COPY: modified -> gpkg
+        _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
+                           "sqlite", "", gpkg_full_path)
+
+        # upload gpkg to mergin (client takes care of storing metadata)
+        mc.push_project(config.project_working_dir)
 
 
 def show_usage():
@@ -393,9 +415,12 @@ def main():
     try:
         load_config(config_filename)
 
-        if sys.argv[1] == 'init':
-            print("Initializing...")
-            dbsync_init()
+        if sys.argv[1] == 'init-from-gpkg':
+            print("Initializing from an existing GeoPackage...")
+            dbsync_init(True)
+        elif sys.argv[1] == 'init-from-db':
+            print("Initializing from an existing DB schema...")
+            dbsync_init(False)
         elif sys.argv[1] == 'status':
             dbsync_status()
         elif sys.argv[1] == 'push':
