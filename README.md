@@ -23,7 +23,11 @@ Initialization:
     ```
     $ mergin download username/projectname /tmp/dbsync
     ```
-4. run `python3 dbsync.py init` to create 'base' schema in the database, create GeoPackage in the working dir and push it to Mergin
+4. run `python3 dbsync.py init-from-db` to create 'base' schema in the database, create GeoPackage in the working dir and push it to Mergin
+
+Optionally, if your Mergin project already contains a GeoPackage file with data,
+use `init-from-gpkg` instead of `init-from-db` to initialize DB sync the other way:
+based on the existing GeoPackage, it will create and populate tables in the database.
 
 Once initialized:
 
