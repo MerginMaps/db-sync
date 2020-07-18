@@ -392,7 +392,8 @@ def dbsync_init(from_gpkg=True):
 def show_usage():
     print("dbsync")
     print("")
-    print("    dbsync init        = will create base schema in DB + create gpkg file in working copy")
+    print("    dbsync init-from-db   = will create base schema in DB + create gpkg file in working copy")
+    print("    dbsync init-from-gpkg = will create base and main schema in DB from gpkg file in working copy")
     print("    dbsync status      = will check whether there is anything to pull or push")
     print("    dbsync push        = will push changes from DB to mergin")
     print("    dbsync pull        = will pull changes from mergin to DB")
