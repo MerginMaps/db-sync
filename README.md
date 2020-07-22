@@ -63,3 +63,15 @@ CREATE TABLE sync_data.points (
   rating integer, geom geometry(Point, 4326)
 );
 ```
+
+### Running Tests
+
+To run automatic tests:
+
+    cd mergin
+    export TEST_GEODIFFINFO_EXE=<geodiffinfo>   # path to geodiffinfo executable
+    export TEST_DB_CONNINFO=<conninfo>          # connection info for DB
+    export TEST_MERGIN_URL=<url>                # testing server
+    export TEST_API_USERNAME=<username>
+    export TEST_API_PASSWORD=<pwd>
+    pytest-3 test/
