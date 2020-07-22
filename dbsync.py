@@ -114,6 +114,10 @@ def _geodiff_apply_changeset(driver, conn_info, base, changeset):
     _run_geodiff([config.geodiffinfo_exe, "applyChangesetEx", driver, conn_info, base, changeset])
 
 
+def _geodiff_rebase(driver, conn_info, base, modified, base2their, conflicts):
+    _run_geodiff([config.geodiffinfo_exe, "rebaseEx", driver, conn_info, base, modified, base2their, conflicts])
+
+
 def _geodiff_list_changes_summary(changeset):
     """ Returns a list with changeset summary:
      [ { 'table': 'foo', 'insert': 1, 'update': 2, 'delete': 3 }, ... ]
@@ -133,9 +137,9 @@ def _geodiff_make_copy(src_driver, src_conn_info, src, dst_driver, dst_conn_info
     _run_geodiff([config.geodiffinfo_exe, "makeCopy", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst])
 
 
-def _print_changes_summary(summary):
+def _print_changes_summary(summary, label=None):
     """ Takes a geodiff JSON summary of changes and prints them """
-    print("Changes:")
+    print("Changes:" if label is None else label)
     for item in summary:
         print("{:20} {:4} {:4} {:4}".format(item['table'], item['insert'], item['update'], item['delete']))
 
@@ -188,10 +192,11 @@ def dbsync_pull():
     # find out our local changes in the database (base2our)
     _geodiff_create_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, config.db_schema_modified, tmp_base2our)
 
+    needs_rebase = False
     if os.path.getsize(tmp_base2our) != 0:
-        raise DbSyncError("Rebase not supported yet!")
-
-    # TODO: when rebasing: apply local DB changes to gpkg  (base2our)
+        needs_rebase = True
+        summary = _geodiff_list_changes_summary(tmp_base2our)
+        _print_changes_summary(summary, "DB Changes:")
 
     mc.pull_project(config.project_working_dir)  # will do rebase as needed
 
@@ -202,15 +207,18 @@ def dbsync_pull():
 
     # summarize changes
     summary = _geodiff_list_changes_summary(tmp_base2their)
-    _print_changes_summary(summary)
+    _print_changes_summary(summary, "Mergin Changes:")
 
-    _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, tmp_base2their)
-    _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_modified, tmp_base2their)
-
-    # TODO: when rebasing:
-    # - createChangesetEx - using gpkg (their2our)
-    # - applyChangesetEx - using DB modified (inv base2our + base2their + their2our)
-    # - applyChangesetEx - using DB base (base2their)
+    if not needs_rebase:
+        print("Applying new version [no rebase]")
+        _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, tmp_base2their)
+        _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_modified, tmp_base2their)
+    else:
+        print("Applying new version [WITH rebase]")
+        tmp_conflicts = os.path.join(tmp_dir, 'dbsync-pull-conflicts')
+        _geodiff_rebase(config.db_driver, config.db_conn_info, config.db_schema_base,
+                        config.db_schema_modified, tmp_base2their, tmp_conflicts)
+        _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, tmp_base2their)
 
     os.remove(gpkg_basefile_old)
 
