@@ -39,6 +39,7 @@ class Config:
 
         self.mergin_username = None
         self.mergin_password = None
+        self.mergin_project_name = None
         self.mergin_sync_file = None
 
         self.db_driver = None
@@ -55,6 +56,7 @@ class Config:
 
         self.mergin_username = cfg['mergin']['username']
         self.mergin_password = cfg['mergin']['password']
+        self.mergin_project_name = cfg['mergin']['project_name']
         self.mergin_sync_file = cfg['mergin']['sync_file']
 
         self.db_driver = cfg['db']['driver']
@@ -334,6 +336,38 @@ def dbsync_push():
 def dbsync_init(from_gpkg=True):
     """ Initialize the dbsync so that it is possible to do two-way sync between Mergin and a database """
 
+    # let's start with various environment checks to make sure
+    # the environment is set up correctly before doing any work
+
+    if os.path.exists(config.project_working_dir):
+        raise DbSyncError("The project working directory already exists: " + config.project_working_dir)
+
+    print("Connecting to the database...")
+    try:
+        conn = psycopg2.connect(config.db_conn_info)
+    except psycopg2.Error as e:
+        raise DbSyncError("Unable to connect to the database: " + str(e))
+
+    if _check_schema_exists(conn, config.db_schema_base):
+        raise DbSyncError("The base schema already exists: " + config.db_schema_base)
+
+    if from_gpkg:
+        if _check_schema_exists(conn, config.db_schema_modified):
+            raise DbSyncError("The 'modified' schema already exists: " + config.db_schema_modified)
+    else:
+        if not _check_schema_exists(conn, config.db_schema_modified):
+            raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
+
+    print("Logging in to Mergin...")
+    try:
+        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+    except LoginError:
+        raise DbSyncError("Unable to log in to Mergin: have you specified correct credentials in configuration file?")
+
+    # download the Mergin project
+    print("Download Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
+    mc.download_project(config.mergin_project_name, config.project_working_dir)
+
     _check_has_working_dir()
 
     gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
@@ -344,11 +378,6 @@ def dbsync_init(from_gpkg=True):
         if os.path.exists(gpkg_full_path):
             raise DbSyncError("The output GPKG file exists already: " + gpkg_full_path)
 
-    try:
-        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
-    except LoginError:
-        raise DbSyncError("Unable to log in to Mergin: have you specified correct credentials in configuration file?")
-
     # check there are no pending changes on server (or locally - which should never happen)
     status_pull, status_push, _ = mc.project_status(config.project_working_dir)
     if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
@@ -356,19 +385,8 @@ def dbsync_init(from_gpkg=True):
     if status_push['added'] or status_push['updated'] or status_push['removed']:
         raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
 
-    try:
-        conn = psycopg2.connect(config.db_conn_info)
-    except psycopg2.Error as e:
-        raise DbSyncError("Unable to connect to the database: " + str(e))
-
-    if _check_schema_exists(conn, config.db_schema_base):
-        raise DbSyncError("The base schema already exists: " + config.db_schema_base)
-
     if from_gpkg:
         # we have an existing GeoPackage in our Mergin project and we want to initialize database
-
-        if _check_schema_exists(conn, config.db_schema_modified):
-            raise DbSyncError("The 'modified' schema already exists: " + config.db_schema_modified)
 
         # COPY: gpkg -> modified
         _geodiff_make_copy("sqlite", "", gpkg_full_path,
@@ -381,9 +399,6 @@ def dbsync_init(from_gpkg=True):
     else:
         # we have an existing schema in database with tables and we want to initialize geopackage
         # within our a Mergin project
-
-        if not _check_schema_exists(conn, config.db_schema_modified):
-            raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
 
         # COPY: modified -> base
         _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,

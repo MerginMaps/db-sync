@@ -8,9 +8,20 @@ That means you can:
 - insert / update / delete features in a GeoPackage in Mergin project - and the changes will get
   automatically pushed to the PostGIS database 
 
+### How does it work
+
+- a single GeoPackage file in a Mergin project is treated as an equivalent of a database schema - both can contain
+  multiple tables with data
+- after the initialization, DB sync tool uses "main" schema in database (where any user editing may happen)
+  and "base" schema (where only DB sync tool is allowed to do changes)
+- the "base" schema contains the same data as the most recently known project version in Mergin, and it is used
+  to figure out whether there have been any changes in the database - if there were, they will be pushed
+  to the appropriate GeoPackage in Mergin project
+
 ### Installation
 
 1. Install Mergin client: `pip3 install mergin-client`
+2. Download [geodiff](https://github.com/lutraconsulting/geodiff) (master branch) and compile it 
 2. download/clone this git repo
 
 ### How to use
@@ -18,17 +29,22 @@ That means you can:
 Initialization:
 
 1. set up configuration in config.ini  (see config.ini.default for a sample)
-2. make your database schema ready (the one marked as 'modified')
-3. download mergin project to the local working directory specified
-    ```
-    $ mergin download username/projectname /tmp/dbsync
-    ```
-4. run `python3 dbsync.py init-from-db` to create 'base' schema in the database, create GeoPackage in the working dir and push it to Mergin
+2. run dbsync initialization. There are two options:
 
-Optionally, if your Mergin project already contains a GeoPackage file with data,
-use `init-from-gpkg` instead of `init-from-db` to initialize DB sync the other way:
-based on the existing GeoPackage, it will create and populate tables in the database.
-
+   A. Init from Mergin project: if you have an existing Mergin project with a GeoPackage
+      that already contains tables with data, this command will create schemas in your database:
+      ```
+      python3 dbsync.py init-from-gpkg
+      ```
+      This will create 'base' and 'modified' schemas in the database and populate them with data.
+    
+   B. Init from database: if you have tables with data in your database (in the schema marked as 'modified'
+      in DB sync configuration) and want to create a GeoPackage based on that in your Mergin project:
+      ```
+      python3 dbsync.py init-from-db
+      ```
+      This will create 'base' schema in the database, create GeoPackage in the working dir and push it to Mergin.
+   
 Once initialized:
 
 - run `python3 dbsync.py status' to see if there are any changes on Mergin server or in the database

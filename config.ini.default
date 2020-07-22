@@ -6,6 +6,7 @@ geodiffinfo_exe=geodiffinfo
 [mergin]
 username=john
 password=topsecret
+project_name=john/myproject
 sync_file=sync.gpkg
 
 [db]
