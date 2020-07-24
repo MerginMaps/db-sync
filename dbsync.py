@@ -16,7 +16,7 @@ import tempfile
 
 import psycopg2
 
-from mergin import MerginClient, MerginProject, LoginError
+from mergin import MerginClient, MerginProject, LoginError, ClientError
 
 
 # set high logging level for geodiff (used by geodiffinfo executable)
@@ -172,9 +172,12 @@ def dbsync_pull():
     _check_has_working_dir()
     _check_has_sync_file()
 
-    mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+    try:
+        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+        status_pull, status_push, _ = mc.project_status(config.project_working_dir)
+    except ClientError as e:
+        raise DbSyncError("Mergin client error: " + str(e))
 
-    status_pull, status_push, _ = mc.project_status(config.project_working_dir)
     if not status_pull['added'] and not status_pull['updated'] and not status_pull['removed']:
         print("No changes on Mergin.")
         return
@@ -200,7 +203,11 @@ def dbsync_pull():
         summary = _geodiff_list_changes_summary(tmp_base2our)
         _print_changes_summary(summary, "DB Changes:")
 
-    mc.pull_project(config.project_working_dir)  # will do rebase as needed
+    try:
+        mc.pull_project(config.project_working_dir)  # will do rebase as needed
+    except ClientError as e:
+        # TODO: do we need some cleanup here?
+        raise DbSyncError("Mergin client error on pull: " + str(e))
 
     print("Pulled new version from Mergin: " + _get_project_version())
 
@@ -249,8 +256,12 @@ def dbsync_status():
     print("Checking status...")
 
     # check if there are any pending changes on server
-    mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
-    server_info = mc.project_info(project_path, since=local_version)
+    try:
+        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+        server_info = mc.project_info(project_path, since=local_version)
+    except ClientError as e:
+        raise DbSyncError("Mergin client error: " + str(e))
+
     print("Server is at version " + server_info["version"])
 
     status_pull = mp.get_pull_changes(server_info["files"])
@@ -295,11 +306,13 @@ def dbsync_push():
     _check_has_working_dir()
     _check_has_sync_file()
 
-    mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+    try:
+        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
+        status_pull, status_push, _ = mc.project_status(config.project_working_dir)
+    except ClientError as e:
+        raise DbSyncError("Mergin client error: " + str(e))
 
     # check there are no pending changes on server (or locally - which should never happen)
-    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
-    status_pull, status_push, _ = mc.project_status(config.project_working_dir)
     if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
         raise DbSyncError("There are pending changes on server - need to pull them first: " + str(status_pull))
     if status_push['added'] or status_push['updated'] or status_push['removed']:
@@ -325,10 +338,15 @@ def dbsync_push():
 
     # write changes to the local geopackage
     print("Writing DB changes to working dir...")
+    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
     _geodiff_apply_changeset("sqlite", "", gpkg_full_path, tmp_changeset_file)
 
     # write to the server
-    mc.push_project(config.project_working_dir)
+    try:
+        mc.push_project(config.project_working_dir)
+    except ClientError as e:
+        # TODO: should we do some cleanup here? (undo changes in the local geopackage?)
+        raise DbSyncError("Mergin client error on push: " + str(e))
 
     print("Pushed new version to Mergin: " + _get_project_version())
 
