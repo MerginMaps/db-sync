@@ -5,6 +5,7 @@
 # - push
 
 import configparser
+import datetime
 import time
 
 import dbsync
@@ -20,11 +21,17 @@ sleep_time = int(cfg['daemon']['sleep_time'])
 
 while True:
 
-    print("Trying to pull")
-    dbsync.dbsync_pull()
+    print(datetime.datetime.now())
 
-    print("Trying to push")
-    dbsync.dbsync_push()
+    try:
+        print("Trying to pull")
+        dbsync.dbsync_pull()
+
+        print("Trying to push")
+        dbsync.dbsync_push()
+
+    except dbsync.DbSyncError as e:
+        print("Error: " + str(e))
 
     print("Going to sleep")
     time.sleep(sleep_time)
