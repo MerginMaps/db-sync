@@ -224,6 +224,8 @@ def dbsync_pull():
 
     os.remove(gpkg_basefile_old)
 
+    print("Pull done!")
+
 
 def dbsync_status():
     """ Figure out if there are any pending changes in the database or in Mergin """
@@ -322,6 +324,7 @@ def dbsync_push():
     _print_changes_summary(summary)
 
     # write changes to the local geopackage
+    print("Writing DB changes to working dir...")
     _geodiff_apply_changeset("sqlite", "", gpkg_full_path, tmp_changeset_file)
 
     # write to the server
@@ -330,7 +333,10 @@ def dbsync_push():
     print("Pushed new version to Mergin: " + _get_project_version())
 
     # update base schema in the DB
+    print("Updating DB base schema...")
     _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, tmp_changeset_file)
+
+    print("Push done!")
 
 
 def dbsync_init(from_gpkg=True):
