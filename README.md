@@ -21,8 +21,22 @@ That means you can:
 ### Installation
 
 1. Install Mergin client: `pip3 install mergin-client`
-2. Download [geodiff](https://github.com/lutraconsulting/geodiff) (master branch) and compile it 
-2. download/clone this git repo
+
+   If you get `ModuleNotFoundError: No module named 'skbuild'` error, try to update pip with command
+`python -m pip install --upgrade pip`
+
+2. Install PostgreSQL client (for Python and for C): `sudo apt install libpq-dev python3-psycopg2`
+
+3. Compile [geodiff](https://github.com/lutraconsulting/geodiff) from master branch with PostgreSQL support:
+   ```
+   git clone https://github.com/lutraconsulting/geodiff.git
+   cd geodiff
+   mkdir build && cd build
+   cmake -DWITH_POSTGRESQL=TRUE ../geodiff
+   make
+   ```
+
+4. download this git repository: `git clone https://github.com/lutraconsulting/mergin-db-sync.git`
 
 ### How to use
 
@@ -91,3 +105,27 @@ To run automatic tests:
     export TEST_API_USERNAME=<username>
     export TEST_API_PASSWORD=<pwd>
     pytest-3 test/
+
+
+### Creating a dedicated PostgreSQL user to view/edit data
+
+Assuming we have database named `mergin_dbsync` where `sync_main` is the name of the schema
+which will be used for ordinary database users, here is how we can create and grant
+permissions to those users:
+
+```
+CREATE USER db_user WITH PASSWORD 'TopSecretPassword';
+GRANT ALL ON DATABASE mergin_dbsync TO db_user;
+GRANT ALL ON SCHEMA sync_main TO db_user;
+GRANT ALL ON ALL TABLES IN SCHEMA sync_main TO db_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA sync_main TO db_user;
+```
+
+### Running the sync daemon in tmux
+
+If we SSH somewhere and want to leave the daemon (`dbsync_daemon.py`) running there
+even after logging out, we can use `tmux` utility. After starting SSH session, run
+`tmux` which will start new terminal session where you can start the script
+(`python3 dbsync_daemon.py`) and then with `Ctrl-B` followed by `d` leave the script
+running in a detached tmux session. Logging out will not affect the daemon. At some
+point later one can run `tmux attach` to bring the session back to the foreground.   
