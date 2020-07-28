@@ -175,7 +175,11 @@ def dbsync_pull():
     try:
         mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
         status_pull, status_push, _ = mc.project_status(config.project_working_dir)
+    except LoginError as e:
+        # this could be auth failure, but could be also server problem (e.g. worker crash)
+        raise DbSyncError("Mergin log in error: " + str(e))
     except ClientError as e:
+        # this could be e.g. DNS error
         raise DbSyncError("Mergin client error: " + str(e))
 
     if not status_pull['added'] and not status_pull['updated'] and not status_pull['removed']:
