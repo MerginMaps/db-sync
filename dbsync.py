@@ -48,8 +48,25 @@ class Config:
         self.db_schema_modified = None
         self.db_schema_base = None
 
+        if 'MERGIN_URL' in os.environ:
+            self.mergin_url = os.environ['MERGIN_URL']
+        if 'MERGIN_USERNAME' in os.environ:
+            self.mergin_username = os.environ['MERGIN_USERNAME']
         if 'MERGIN_PASSWORD' in os.environ:
             self.mergin_password = os.environ['MERGIN_PASSWORD']
+        if 'MERGIN_PROJECT_NAME' in os.environ:
+            self.mergin_project_name = os.environ['MERGIN_PROJECT_NAME']
+        if 'MERGIN_SYNC_FILE' in os.environ:
+            self.mergin_sync_file = os.environ['MERGIN_SYNC_FILE']
+
+        if 'DB_DRIVER' in os.environ:
+            self.db_driver = os.environ['DB_DRIVER']
+        if 'DB_CONN_INFO' in os.environ:
+            self.db_conn_info = os.environ['DB_CONN_INFO']
+        if 'DB_SCHEMA_MODIFIED' in os.environ:
+            self.db_schema_modified = os.environ['DB_SCHEMA_MODIFIED']
+        if 'DB_SCHEMA_BASE' in os.environ:
+            self.db_schema_base = os.environ['DB_SCHEMA_BASE']
 
     def load(self, filename):
         cfg = configparser.ConfigParser()
@@ -58,17 +75,30 @@ class Config:
         self.project_working_dir = cfg['general']['working_dir']
         self.geodiffinfo_exe = cfg['general']['geodiffinfo_exe']
 
-        self.mergin_username = cfg['mergin']['username']
-        if 'password' in cfg['mergin']:
-            # password can be optionally stored in config.ini, but it is not recommended
-            self.mergin_password = cfg['mergin']['password']
-        self.mergin_project_name = cfg['mergin']['project_name']
-        self.mergin_sync_file = cfg['mergin']['sync_file']
+        if 'mergin' in cfg:
+            cfg_mergin = cfg['mergin']
+            if 'url' in cfg_mergin:
+                self.mergin_url = cfg_mergin['url']
+            if 'username' in cfg_mergin:
+                self.mergin_username = cfg_mergin['username']
+            if 'password' in cfg_mergin:
+                # password can be optionally stored in config.ini, but it is not recommended
+                self.mergin_password = cfg_mergin['password']
+            if 'project_name' in cfg_mergin:
+                self.mergin_project_name = cfg_mergin['project_name']
+            if 'sync_file' in cfg_mergin:
+                self.mergin_sync_file = cfg_mergin['sync_file']
 
-        self.db_driver = cfg['db']['driver']
-        self.db_conn_info = cfg['db']['conn_info']
-        self.db_schema_modified = cfg['db']['modified']   # where local editing happens
-        self.db_schema_base = cfg['db']['base']           # where only this script does changes
+        if 'db' in cfg:
+            cfg_db = cfg['db']
+            if 'driver' in cfg_db:
+                self.db_driver = cfg_db['driver']
+            if 'conn_info' in cfg_db:
+                self.db_conn_info = cfg_db['conn_info']
+            if 'modified' in cfg_db:
+                self.db_schema_modified = cfg_db['modified']   # where local editing happens
+            if 'base' in cfg_db:
+                self.db_schema_base = cfg_db['base']           # where only this script does changes
 
 
 config = Config()
