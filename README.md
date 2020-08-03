@@ -18,7 +18,39 @@ That means you can:
   to figure out whether there have been any changes in the database - if there were, they will be pushed
   to the appropriate GeoPackage in Mergin project
 
+### Running with Docker
+
+The easiest way to run DB sync is with Docker.
+
+To build the container:
+```
+docker build -t mergin_db_sync .
+```
+
+To run the container, use a command like the following one: 
+```
+sudo docker run -it \
+  -e DB_CONN_INFO="host=myhost.com dbname=mergin_dbsync user=postgres password=top_secret" \
+  -e DB_SCHEMA_MODIFIED=sync_main \
+  -e DB_SCHEMA_BASE=sync_base \
+  -e MERGIN_USERNAME=john \
+  -e MERGIN_PASSWORD=myStrongPassword \
+  -e MERGIN_PROJECT_NAME=john/my_project \
+  -e MERGIN_SYNC_FILE=sync_db.gpkg \
+  mergin_db_sync python3 dbsync_daemon.py --init-from-gpkg
+```
+This will create `sync_main` and `sync_base` schemas in the PostgreSQL database based on the table
+schemas and from the `sync_db.gpkg` GeoPackage in `john/my_project` Mergin project, and they will
+get populated by the existing data. Afterwards, the sync process will start, regularly checking both
+Mergin service and your PostgreSQL for any new changes.
+
+Please make sure the PostgreSQL user in the database connection info has sufficient permissions
+to create schemas and tables.  
+
 ### Installation
+
+If you would like to avoid the manual installation steps, please follow the guide on using
+DB sync with Docker above.
 
 1. Install Mergin client: `pip3 install mergin-client`
 
