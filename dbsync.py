@@ -263,6 +263,9 @@ def dbsync_status():
     try:
         mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
         server_info = mc.project_info(project_path, since=local_version)
+    except LoginError as e:
+        # this could be auth failure, but could be also server problem (e.g. worker crash)
+        raise DbSyncError("Mergin log in error: " + str(e))
     except ClientError as e:
         raise DbSyncError("Mergin client error: " + str(e))
 
@@ -313,6 +316,9 @@ def dbsync_push():
     try:
         mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
         status_pull, status_push, _ = mc.project_status(config.project_working_dir)
+    except LoginError as e:
+        # this could be auth failure, but could be also server problem (e.g. worker crash)
+        raise DbSyncError("Mergin log in error: " + str(e))
     except ClientError as e:
         raise DbSyncError("Mergin client error: " + str(e))
 
