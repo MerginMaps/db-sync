@@ -7,6 +7,7 @@ License: MIT
 """
 
 import configparser
+import getpass
 import json
 import os
 import shutil
@@ -47,6 +48,9 @@ class Config:
         self.db_schema_modified = None
         self.db_schema_base = None
 
+        if 'MERGIN_PASSWORD' in os.environ:
+            self.mergin_password = os.environ['MERGIN_PASSWORD']
+
     def load(self, filename):
         cfg = configparser.ConfigParser()
         cfg.read(filename)
@@ -55,7 +59,9 @@ class Config:
         self.geodiffinfo_exe = cfg['general']['geodiffinfo_exe']
 
         self.mergin_username = cfg['mergin']['username']
-        self.mergin_password = cfg['mergin']['password']
+        if 'password' in cfg['mergin']:
+            # password can be optionally stored in config.ini, but it is not recommended
+            self.mergin_password = cfg['mergin']['password']
         self.mergin_project_name = cfg['mergin']['project_name']
         self.mergin_sync_file = cfg['mergin']['sync_file']
 
@@ -95,6 +101,12 @@ def _check_schema_exists(conn, schema_name):
     cur = conn.cursor()
     cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = %s)", (schema_name,))
     return cur.fetchone()[0]
+
+
+def _check_has_password():
+    """ Checks whether we have password for Mergin user - if not, we will ask for it """
+    if config.mergin_password is None:
+        config.mergin_password = getpass.getpass(prompt="Mergin password for '{}': ".format(config.mergin_username))
 
 
 def _run_geodiff(cmd):
@@ -171,6 +183,7 @@ def dbsync_pull():
 
     _check_has_working_dir()
     _check_has_sync_file()
+    _check_has_password()
 
     try:
         mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
@@ -243,6 +256,7 @@ def dbsync_status():
 
     _check_has_working_dir()
     _check_has_sync_file()
+    _check_has_password()
 
     # get basic information
     mp = MerginProject(config.project_working_dir)
@@ -312,6 +326,7 @@ def dbsync_push():
 
     _check_has_working_dir()
     _check_has_sync_file()
+    _check_has_password()
 
     try:
         mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
@@ -392,6 +407,7 @@ def dbsync_init(from_gpkg=True):
         if not _check_schema_exists(conn, config.db_schema_modified):
             raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
 
+    _check_has_password()
     print("Logging in to Mergin...")
     try:
         mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
