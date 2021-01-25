@@ -18,6 +18,7 @@ import tempfile
 import psycopg2
 
 from mergin import MerginClient, MerginProject, LoginError, ClientError
+from version import __version__
 
 
 # set high logging level for geodiff (used by geodiffinfo executable)
@@ -208,6 +209,19 @@ def _get_project_version():
     return mp.metadata["version"]
 
 
+def _create_mergin_client():
+    """ Create instance of MerginClient"""
+    try:
+        return MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password, plugin_version=f"DB-sync {__version__}")
+    except LoginError as e:
+        # this could be auth failure, but could be also server problem (e.g. worker crash)
+        raise DbSyncError(f"Unable to log in to Mergin: {str(e)} \n\n" +
+                          "Have you specified correct credentials in configuration file?")
+    except ClientError as e:
+        # this could be e.g. DNS error
+        raise DbSyncError("Mergin client error: " + str(e))
+
+
 def dbsync_pull():
     """ Downloads any changes from Mergin and applies them to the database """
 
@@ -215,12 +229,9 @@ def dbsync_pull():
     _check_has_sync_file()
     _check_has_password()
 
+    mc = _create_mergin_client()
     try:
-        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
         status_pull, status_push, _ = mc.project_status(config.project_working_dir)
-    except LoginError as e:
-        # this could be auth failure, but could be also server problem (e.g. worker crash)
-        raise DbSyncError("Mergin log in error: " + str(e))
     except ClientError as e:
         # this could be e.g. DNS error
         raise DbSyncError("Mergin client error: " + str(e))
@@ -304,12 +315,9 @@ def dbsync_status():
     print("Checking status...")
 
     # check if there are any pending changes on server
+    mc = _create_mergin_client()
     try:
-        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
         server_info = mc.project_info(project_path, since=local_version)
-    except LoginError as e:
-        # this could be auth failure, but could be also server problem (e.g. worker crash)
-        raise DbSyncError("Mergin log in error: " + str(e))
     except ClientError as e:
         raise DbSyncError("Mergin client error: " + str(e))
 
@@ -358,12 +366,9 @@ def dbsync_push():
     _check_has_sync_file()
     _check_has_password()
 
+    mc = _create_mergin_client()
     try:
-        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
         status_pull, status_push, _ = mc.project_status(config.project_working_dir)
-    except LoginError as e:
-        # this could be auth failure, but could be also server problem (e.g. worker crash)
-        raise DbSyncError("Mergin log in error: " + str(e))
     except ClientError as e:
         raise DbSyncError("Mergin client error: " + str(e))
 
@@ -439,10 +444,7 @@ def dbsync_init(from_gpkg=True):
 
     _check_has_password()
     print("Logging in to Mergin...")
-    try:
-        mc = MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password)
-    except LoginError:
-        raise DbSyncError("Unable to log in to Mergin: have you specified correct credentials in configuration file?")
+    mc = _create_mergin_client()
 
     # download the Mergin project
     print("Download Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
