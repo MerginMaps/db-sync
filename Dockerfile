@@ -26,6 +26,7 @@ RUN cd geodiff && mkdir build && cd build && \
 
 # DB sync code
 WORKDIR /mergin-db-sync
+COPY version.py .
 COPY dbsync.py .
 COPY dbsync_daemon.py .
 
