@@ -17,6 +17,10 @@ That means you can:
 - the "base" schema contains the same data as the most recently known project version in Mergin, and it is used
   to figure out whether there have been any changes in the database - if there were, they will be pushed
   to the appropriate GeoPackage in Mergin project
+  
+### Quick start
+
+Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync between your database and a new Mergin project.
 
 ### Running with Docker
 
