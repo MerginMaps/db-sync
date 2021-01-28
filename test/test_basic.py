@@ -8,9 +8,6 @@ import tempfile
 import psycopg2
 
 from mergin import MerginClient, ClientError
-
-import sys
-sys.path.insert(0, '/home/martin/lutra/mergin-db-sync')
 from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config
 
 
@@ -76,9 +73,6 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
     shutil.copy(source_gpkg_path, os.path.join(project_dir, 'test_sync.gpkg'))
     mc.push_project(project_dir)
 
-    # prepare sync dir
-    mc.download_project(full_project_name, sync_project_dir)
-
     # prepare dbsync config
     config.geodiffinfo_exe = GEODIFFINFO_EXE
     config.mergin_username = API_USER
@@ -86,12 +80,13 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
     config.mergin_url = SERVER_URL
     config.db_conn_info = DB_CONNINFO
     config.project_working_dir = sync_project_dir
+    config.mergin_project_name = full_project_name
     config.mergin_sync_file = 'test_sync.gpkg'
     config.db_driver = 'postgres'
     config.db_schema_modified = db_schema_main
     config.db_schema_base = db_schema_base
 
-    dbsync_init(from_gpkg=True)
+    dbsync_init(mc, from_gpkg=True)
 
 
 def test_basic_pull(mc):
@@ -120,7 +115,7 @@ def test_basic_pull(mc):
     mc.push_project(project_dir)
 
     # pull the change from Mergin to DB
-    dbsync_pull()
+    dbsync_pull(mc)
 
     # check that a feature has been inserted
     cur = conn.cursor()
@@ -128,7 +123,7 @@ def test_basic_pull(mc):
     assert cur.fetchone()[0] == 4
 
     print("---")
-    dbsync_status()
+    dbsync_status(mc)
 
 
 def test_basic_push(mc):
@@ -155,7 +150,7 @@ def test_basic_push(mc):
     assert cur.fetchone()[0] == 4
 
     # push the change from DB to PostgreSQL
-    dbsync_push()
+    dbsync_push(mc)
 
     # pull new version of the project to the work project directory
     mc.pull_project(project_dir)
@@ -167,7 +162,7 @@ def test_basic_push(mc):
     assert gpkg_cur.fetchone()[0] == 4
 
     print("---")
-    dbsync_status()
+    dbsync_status(mc)
 
 
 def test_basic_both(mc):
@@ -201,8 +196,8 @@ def test_basic_both(mc):
     assert cur.fetchone()[0] == 4
 
     # first pull changes from Mergin to DB (+rebase changes in DB) and then push the changes from DB to Mergin
-    dbsync_pull()
-    dbsync_push()
+    dbsync_pull(mc)
+    dbsync_push(mc)
 
     # pull new version of the project to the work project directory
     mc.pull_project(project_dir)
@@ -219,4 +214,4 @@ def test_basic_both(mc):
     assert cur.fetchone()[0] == 5
 
     print("---")
-    dbsync_status()
+    dbsync_status(mc)
