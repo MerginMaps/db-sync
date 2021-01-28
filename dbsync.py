@@ -209,8 +209,9 @@ def _get_project_version():
     return mp.metadata["version"]
 
 
-def _create_mergin_client():
+def create_mergin_client():
     """ Create instance of MerginClient"""
+    _check_has_password()
     try:
         return MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password, plugin_version=f"DB-sync {__version__}")
     except LoginError as e:
@@ -222,14 +223,12 @@ def _create_mergin_client():
         raise DbSyncError("Mergin client error: " + str(e))
 
 
-def dbsync_pull():
+def dbsync_pull(mc):
     """ Downloads any changes from Mergin and applies them to the database """
 
     _check_has_working_dir()
     _check_has_sync_file()
-    _check_has_password()
 
-    mc = _create_mergin_client()
     try:
         status_pull, status_push, _ = mc.project_status(config.project_working_dir)
     except ClientError as e:
@@ -292,12 +291,11 @@ def dbsync_pull():
     print("Pull done!")
 
 
-def dbsync_status():
+def dbsync_status(mc):
     """ Figure out if there are any pending changes in the database or in Mergin """
 
     _check_has_working_dir()
     _check_has_sync_file()
-    _check_has_password()
 
     # get basic information
     mp = MerginProject(config.project_working_dir)
@@ -315,7 +313,6 @@ def dbsync_status():
     print("Checking status...")
 
     # check if there are any pending changes on server
-    mc = _create_mergin_client()
     try:
         server_info = mc.project_info(project_path, since=local_version)
     except ClientError as e:
@@ -354,7 +351,7 @@ def dbsync_status():
         _print_changes_summary(summary)
 
 
-def dbsync_push():
+def dbsync_push(mc):
     """ Take changes in the 'modified' schema in the database and push them to Mergin """
 
     tmp_dir = tempfile.gettempdir()
@@ -364,9 +361,7 @@ def dbsync_push():
 
     _check_has_working_dir()
     _check_has_sync_file()
-    _check_has_password()
 
-    mc = _create_mergin_client()
     try:
         status_pull, status_push, _ = mc.project_status(config.project_working_dir)
     except ClientError as e:
@@ -417,7 +412,7 @@ def dbsync_push():
     print("Push done!")
 
 
-def dbsync_init(from_gpkg=True):
+def dbsync_init(mc, from_gpkg=True):
     """ Initialize the dbsync so that it is possible to do two-way sync between Mergin and a database """
 
     # let's start with various environment checks to make sure
@@ -441,10 +436,6 @@ def dbsync_init(from_gpkg=True):
     else:
         if not _check_schema_exists(conn, config.db_schema_modified):
             raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
-
-    _check_has_password()
-    print("Logging in to Mergin...")
-    mc = _create_mergin_client()
 
     # download the Mergin project
     print("Download Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
@@ -520,21 +511,23 @@ def main():
 
     try:
         load_config(config_filename)
+        print("Logging in to Mergin...")
+        mc = create_mergin_client()
 
         if sys.argv[1] == 'init-from-gpkg':
             print("Initializing from an existing GeoPackage...")
-            dbsync_init(True)
+            dbsync_init(mc, True)
         elif sys.argv[1] == 'init-from-db':
             print("Initializing from an existing DB schema...")
-            dbsync_init(False)
+            dbsync_init(mc, False)
         elif sys.argv[1] == 'status':
-            dbsync_status()
+            dbsync_status(mc)
         elif sys.argv[1] == 'push':
             print("Pushing...")
-            dbsync_push()
+            dbsync_push(mc)
         elif sys.argv[1] == 'pull':
             print("Pulling...")
-            dbsync_pull()
+            dbsync_pull(mc)
         else:
             show_usage()
     except DbSyncError as e:
