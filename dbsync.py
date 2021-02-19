@@ -245,17 +245,26 @@ def dbsync_pull(mc):
     _check_has_working_dir()
     _check_has_sync_file()
 
+    mp = MerginProject(config.project_working_dir)
+    if mp.geodiff is None:
+        raise DbSyncError("Mergin client installation problem: geodiff not available")
+    project_path = mp.metadata["name"]
+    local_version = mp.metadata["version"]
+
     try:
-        status_pull, status_push, _ = mc.project_status(config.project_working_dir)
+        projects = mc.get_projects_by_names([project_path])
+        server_version = projects[project_path]["version"]
     except ClientError as e:
         # this could be e.g. DNS error
         raise DbSyncError("Mergin client error: " + str(e))
 
-    if not status_pull['added'] and not status_pull['updated'] and not status_pull['removed']:
-        print("No changes on Mergin.")
-        return
+    status_push = mp.get_push_changes()
     if status_push['added'] or status_push['updated'] or status_push['removed']:
         raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
+
+    if server_version == local_version:
+        print("No changes on Mergin.")
+        return
 
     gpkg_basefile = os.path.join(config.project_working_dir, '.mergin', config.mergin_sync_file)
     gpkg_basefile_old = gpkg_basefile + "-old"
@@ -378,16 +387,27 @@ def dbsync_push(mc):
     _check_has_working_dir()
     _check_has_sync_file()
 
+    mp = MerginProject(config.project_working_dir)
+    if mp.geodiff is None:
+        raise DbSyncError("Mergin client installation problem: geodiff not available")
+    project_path = mp.metadata["name"]
+    local_version = mp.metadata["version"]
+
     try:
-        status_pull, status_push, _ = mc.project_status(config.project_working_dir)
+        projects = mc.get_projects_by_names([project_path])
+        server_version = projects[project_path]["version"]
     except ClientError as e:
+        # this could be e.g. DNS error
         raise DbSyncError("Mergin client error: " + str(e))
 
-    # check there are no pending changes on server (or locally - which should never happen)
-    if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
-        raise DbSyncError("There are pending changes on server - need to pull them first: " + str(status_pull))
+    status_push = mp.get_push_changes()
     if status_push['added'] or status_push['updated'] or status_push['removed']:
-        raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
+        raise DbSyncError(
+            "There are pending changes in the local directory - that should never happen! " + str(status_push))
+
+    # check there are no pending changes on server
+    if server_version != local_version:
+        raise DbSyncError("There are pending changes on server - need to pull them first.")
 
     conn = psycopg2.connect(config.db_conn_info)
 
