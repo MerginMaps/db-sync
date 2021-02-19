@@ -469,6 +469,7 @@ def dbsync_init(mc, from_gpkg=True):
             if len(summary_modified) or len(summary_base):
                 raise DbSyncError("The db schemas already exist but they are not synchronized with source GPKG")
             else:
+                print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
         elif modified_schema_exists:
             raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {config.db_schema_base}")
@@ -476,6 +477,7 @@ def dbsync_init(mc, from_gpkg=True):
             raise DbSyncError(f"The base schema exists but the modified schema is missing: {config.db_schema_modified}")
 
         # initialize: we have an existing GeoPackage in our Mergin project and we want to initialize database
+        print("The base and modified schemas do not exist yet, going to initialize them ...")
         # COPY: gpkg -> modified
         _geodiff_make_copy("sqlite", "", gpkg_full_path,
                            config.db_driver, config.db_conn_info, config.db_schema_modified)
@@ -496,6 +498,7 @@ def dbsync_init(mc, from_gpkg=True):
             if len(summary_modified) or len(summary_base):
                 raise DbSyncError("The output GPKG file exists already but it is not synchronized with db schemas")
             else:
+                print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
         elif os.path.exists(gpkg_full_path):
             raise DbSyncError(f"The output GPKG exists but the base schema is missing: {config.db_schema_base}")
@@ -504,6 +507,7 @@ def dbsync_init(mc, from_gpkg=True):
 
         # initialize: we have an existing schema in database with tables and we want to initialize geopackage
         # within our Mergin project
+        print("The base schema and the output GPKG do not exist yet, going to initialize them ...")
         # COPY: modified -> base
         _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
                            config.db_driver, config.db_conn_info, config.db_schema_base)
