@@ -229,7 +229,7 @@ def create_mergin_client():
     """ Create instance of MerginClient"""
     _check_has_password()
     try:
-        return MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password, plugin_version=f"DB-sync {__version__}")
+        return MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password, plugin_version=f"DB-sync/{__version__}")
     except LoginError as e:
         # this could be auth failure, but could be also server problem (e.g. worker crash)
         raise DbSyncError(f"Unable to log in to Mergin: {str(e)} \n\n" +
