@@ -11,9 +11,11 @@ import getpass
 import json
 import os
 import shutil
+import string
 import subprocess
 import sys
 import tempfile
+import random
 
 import psycopg2
 
@@ -180,6 +182,20 @@ def _geodiff_list_changes_summary(changeset):
 
 def _geodiff_make_copy(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst):
     _run_geodiff([config.geodiffinfo_exe, "makeCopy", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst])
+
+
+def _geodiff_create_changeset_dr(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, changeset):
+    _run_geodiff([config.geodiffinfo_exe, "createChangesetDr", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, changeset])
+
+
+def _compare_datasets(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst):
+    """ Compare content of two datasets (from various drivers) and return geodiff JSON summary of changes """
+    tmp_dir = tempfile.gettempdir()
+    tmp_changeset = os.path.join(tmp_dir, ''.join(random.choices(string.ascii_letters, k=8)))
+
+    _geodiff_create_changeset_dr(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, tmp_changeset)
+    summary = _geodiff_list_changes_summary(tmp_changeset)
+    return summary
 
 
 def _print_changes_summary(summary, label=None):
@@ -417,39 +433,19 @@ def dbsync_init(mc, from_gpkg=True):
 
     # let's start with various environment checks to make sure
     # the environment is set up correctly before doing any work
-
-    if os.path.exists(config.project_working_dir):
-        raise DbSyncError("The project working directory already exists: " + config.project_working_dir)
+    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
+    if not os.path.exists(config.project_working_dir):
+        # download the Mergin project
+        print("Download Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
+        mc.download_project(config.mergin_project_name, config.project_working_dir)
+        # make sure we have working directory now
+        _check_has_working_dir()
 
     print("Connecting to the database...")
     try:
         conn = psycopg2.connect(config.db_conn_info)
     except psycopg2.Error as e:
         raise DbSyncError("Unable to connect to the database: " + str(e))
-
-    if _check_schema_exists(conn, config.db_schema_base):
-        raise DbSyncError("The base schema already exists: " + config.db_schema_base)
-
-    if from_gpkg:
-        if _check_schema_exists(conn, config.db_schema_modified):
-            raise DbSyncError("The 'modified' schema already exists: " + config.db_schema_modified)
-    else:
-        if not _check_schema_exists(conn, config.db_schema_modified):
-            raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
-
-    # download the Mergin project
-    print("Download Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
-    mc.download_project(config.mergin_project_name, config.project_working_dir)
-
-    _check_has_working_dir()
-
-    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
-    if from_gpkg:
-        if not os.path.exists(gpkg_full_path):
-            raise DbSyncError("The input GPKG file does not exist: " + gpkg_full_path)
-    else:
-        if os.path.exists(gpkg_full_path):
-            raise DbSyncError("The output GPKG file exists already: " + gpkg_full_path)
 
     # check there are no pending changes on server (or locally - which should never happen)
     status_pull, status_push, _ = mc.project_status(config.project_working_dir)
@@ -458,9 +454,28 @@ def dbsync_init(mc, from_gpkg=True):
     if status_push['added'] or status_push['updated'] or status_push['removed']:
         raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
 
+    base_schema_exists = _check_schema_exists(conn, config.db_schema_base)
+    modified_schema_exists = _check_schema_exists(conn, config.db_schema_modified)
     if from_gpkg:
-        # we have an existing GeoPackage in our Mergin project and we want to initialize database
+        if not os.path.exists(gpkg_full_path):
+            raise DbSyncError("The input GPKG file does not exist: " + gpkg_full_path)
 
+        if modified_schema_exists and base_schema_exists:
+            # if db schema already exists make sure it is already synchronized with source gpkg or fail
+            summary_modified = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
+                                                 config.db_conn_info, config.db_schema_modified)
+            summary_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
+                                             config.db_conn_info, config.db_schema_base)
+            if len(summary_modified) or len(summary_base):
+                raise DbSyncError("The db schemas already exist but they are not synchronized with source GPKG")
+            else:
+                return  # nothing to do
+        elif modified_schema_exists:
+            raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {config.db_schema_base}")
+        elif base_schema_exists:
+            raise DbSyncError(f"The base schema exists but the modified schema is missing: {config.db_schema_modified}")
+
+        # initialize: we have an existing GeoPackage in our Mergin project and we want to initialize database
         # COPY: gpkg -> modified
         _geodiff_make_copy("sqlite", "", gpkg_full_path,
                            config.db_driver, config.db_conn_info, config.db_schema_modified)
@@ -468,11 +483,27 @@ def dbsync_init(mc, from_gpkg=True):
         # COPY: modified -> base
         _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
                            config.db_driver, config.db_conn_info, config.db_schema_base)
-
     else:
-        # we have an existing schema in database with tables and we want to initialize geopackage
-        # within our a Mergin project
+        if not modified_schema_exists:
+            raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
 
+        if os.path.exists(gpkg_full_path) and base_schema_exists:
+            # make sure output gpkg is in sync with db or fail
+            summary_modified = _compare_datasets(config.db_conn_info, config.db_schema_modified,
+                                                "sqlite", "", gpkg_full_path, config.db_driver)
+            summary_base = _compare_datasets(config.db_conn_info, config.db_schema_base,
+                                            "sqlite", "", gpkg_full_path, config.db_driver)
+            if len(summary_modified) or len(summary_base):
+                raise DbSyncError("The output GPKG file exists already but it is not synchronized with db schemas")
+            else:
+                return  # nothing to do
+        elif os.path.exists(gpkg_full_path):
+            raise DbSyncError(f"The output GPKG exists but the base schema is missing: {config.db_schema_base}")
+        elif base_schema_exists:
+            raise DbSyncError(f"The base schema exists but the output GPKG exists is missing: {gpkg_full_path}")
+
+        # initialize: we have an existing schema in database with tables and we want to initialize geopackage
+        # within our Mergin project
         # COPY: modified -> base
         _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
                            config.db_driver, config.db_conn_info, config.db_schema_base)

@@ -8,7 +8,7 @@ import tempfile
 import psycopg2
 
 from mergin import MerginClient, ClientError
-from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config
+from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError
 
 
 GEODIFFINFO_EXE = os.environ.get('TEST_GEODIFFINFO_EXE')
@@ -87,6 +87,61 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
     config.db_schema_base = db_schema_base
 
     dbsync_init(mc, from_gpkg=True)
+
+
+def test_init_from_gpkg(mc):
+    project_name = 'test_init'
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
+    project_dir = os.path.join(TMP_DIR, project_name + '_work')
+    db_schema_main = project_name + '_main'
+    db_schema_base = project_name + '_base'
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    # test that database schemas are created + tables are populated
+    conn = psycopg2.connect(DB_CONNINFO)
+    cur = conn.cursor()
+    cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
+    assert cur.fetchone()[0] == 3
+
+    # run again, nothing should change
+    dbsync_init(mc, from_gpkg=True)
+    cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
+    assert cur.fetchone()[0] == 3
+
+    # rename base schema to mimic some mismatch
+    cur.execute(f"ALTER SCHEMA {db_schema_base} RENAME TO schema_tmp")
+    conn.commit()
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc, from_gpkg=True)
+    assert "The 'modified' schema exists but the base schema is missing" in str(err.value)
+    # and revert back
+    cur.execute(f"ALTER SCHEMA schema_tmp RENAME TO {db_schema_base}")
+    conn.commit()
+
+    # remove some feature from 'modified' db to create mismatch with src geopackage
+    cur.execute(f"SELECT * from {db_schema_main}.simple")
+    cur.execute(f"DELETE FROM {db_schema_main}.simple WHERE fid ={cur.fetchone()[0]}")
+    conn.commit()
+    cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
+    assert cur.fetchone()[0] == 2
+
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc, from_gpkg=True)
+    assert "The db schemas already exist but they are not synchronized with source GPKG" in str(err.value)
+
+    # make local changes to src file to introduce local changes
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(config.project_working_dir, config.mergin_sync_file))
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc, from_gpkg=True)
+    assert "There are pending changes in the local directory - that should never happen" in str(err.value)
+
+    # make change in GPKG and push to server to create pending changes
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
+    mc.push_project(project_dir)
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc, from_gpkg=True)
+    assert "There are pending changes on server" in str(err.value)
 
 
 def test_basic_pull(mc):

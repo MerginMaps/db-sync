@@ -2,3 +2,5 @@ __pycache__
 config.ini
 .idea
 mergin
+.coverage
+htmlcov
