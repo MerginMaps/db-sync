@@ -109,6 +109,11 @@ def test_init_from_gpkg(mc):
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
 
+    # make change in GPKG and push to server to create pending changes, it should pass
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
+    mc.push_project(project_dir)
+    dbsync_init(mc, from_gpkg=True)
+
     # rename base schema to mimic some mismatch
     cur.execute(f"ALTER SCHEMA {db_schema_base} RENAME TO schema_tmp")
     conn.commit()
@@ -119,29 +124,30 @@ def test_init_from_gpkg(mc):
     cur.execute(f"ALTER SCHEMA schema_tmp RENAME TO {db_schema_base}")
     conn.commit()
 
-    # remove some feature from 'modified' db to create mismatch with src geopackage
+    # remove some feature from 'modified' db to create mismatch with src geopackage, it should pass
     cur.execute(f"SELECT * from {db_schema_main}.simple")
     cur.execute(f"DELETE FROM {db_schema_main}.simple WHERE fid ={cur.fetchone()[0]}")
     conn.commit()
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 2
+    dbsync_init(mc, from_gpkg=True)
+
+    # remove some feature from 'base' db to create mismatch with src geopackage
+    cur.execute(f"SELECT * from {db_schema_base}.simple")
+    cur.execute(f"DELETE FROM {db_schema_base}.simple WHERE fid ={cur.fetchone()[0]}")
+    conn.commit()
+    cur.execute(f"SELECT count(*) from {db_schema_base}.simple")
+    assert cur.fetchone()[0] == 2
 
     with pytest.raises(DbSyncError) as err:
         dbsync_init(mc, from_gpkg=True)
-    assert "The db schemas already exist but they are not synchronized with source GPKG" in str(err.value)
+    assert "The db schemas already exist but 'base' schema is not synchronized with source GPKG" in str(err.value)
 
     # make local changes to src file to introduce local changes
     shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(config.project_working_dir, config.mergin_sync_file))
     with pytest.raises(DbSyncError) as err:
         dbsync_init(mc, from_gpkg=True)
     assert "There are pending changes in the local directory - that should never happen" in str(err.value)
-
-    # make change in GPKG and push to server to create pending changes
-    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
-    mc.push_project(project_dir)
-    with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
-    assert "There are pending changes on server" in str(err.value)
 
 
 def test_basic_pull(mc):
