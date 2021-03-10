@@ -470,7 +470,7 @@ def dbsync_init(mc, from_gpkg=True):
     # check there are no pending changes on server (or locally - which should never happen)
     status_pull, status_push, _ = mc.project_status(config.project_working_dir)
     if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
-        raise DbSyncError("There are pending changes on server - need to pull them first: " + str(status_pull))
+        print("There are pending changes on server, please run pull command after init")
     if status_push['added'] or status_push['updated'] or status_push['removed']:
         raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
 
@@ -486,8 +486,11 @@ def dbsync_init(mc, from_gpkg=True):
                                                  config.db_conn_info, config.db_schema_modified)
             summary_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
                                              config.db_conn_info, config.db_schema_base)
-            if len(summary_modified) or len(summary_base):
-                raise DbSyncError("The db schemas already exist but they are not synchronized with source GPKG")
+            if len(summary_base):
+                raise DbSyncError("The db schemas already exist but 'base' schema is not synchronized with source GPKG")
+            elif len(summary_modified):
+                print("Modified schema is not synchronised with source GPKG, please run pull/push commands to fix it")
+                return
             else:
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
@@ -515,8 +518,12 @@ def dbsync_init(mc, from_gpkg=True):
                                                 "sqlite", "", gpkg_full_path, config.db_driver)
             summary_base = _compare_datasets(config.db_conn_info, config.db_schema_base,
                                             "sqlite", "", gpkg_full_path, config.db_driver)
-            if len(summary_modified) or len(summary_base):
-                raise DbSyncError("The output GPKG file exists already but it is not synchronized with db schemas")
+            if len(summary_base):
+                raise DbSyncError("The output GPKG file exists already but it is not synchronized with db 'base' schema")
+            elif len(summary_modified):
+                print("The output GPKG file exists already but it is not synchronised with modified schema, "
+                      "please run pull/push commands to fix it")
+                return
             else:
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
