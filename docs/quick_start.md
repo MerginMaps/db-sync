@@ -26,11 +26,10 @@ You should see there are not any files there.
 and your full project name for later will be `<username>/<project-name>`, e.g. `john/db-sync`
 
 ## 3. Start syncing
-Build and run db-sync docker image:
+Download and run db-sync docker image:
 
 ```
-$ sudo docker build -t mergin_db_sync .
-$ sudo docker run -it
+$ sudo docker run --name mergin_db_sync -it lutraconsulting/mergin-db-sync:latest
   -e DB_CONN_INFO="host=myhost.com dbname=db-sync user=postgres password=top_secret"
   -e DB_SCHEMA_MODIFIED=sync_data
   -e DB_SCHEMA_BASE=sync_base
