@@ -8,8 +8,7 @@ import tempfile
 import psycopg2
 
 from mergin import MerginClient, ClientError
-from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError
-
+from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError, _geodiff_make_copy
 
 GEODIFFINFO_EXE = os.environ.get('TEST_GEODIFFINFO_EXE')
 DB_CONNINFO = os.environ.get('TEST_DB_CONNINFO')
@@ -109,9 +108,31 @@ def test_init_from_gpkg(mc):
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
 
+    # update some feature from 'base' db to create mismatch with src geopackage and modified
+    cur.execute(f"SELECT * from {db_schema_base}.simple")
+    cur.execute(f"DELETE FROM {db_schema_base}.simple WHERE fid ={cur.fetchone()[0]}")
+    conn.commit()
+    cur.execute(f"SELECT count(*) from {db_schema_base}.simple")
+    assert cur.fetchone()[0] == 2
+    cur.execute(f"SELECT * from {db_schema_base}.simple")
+    fid = cur.fetchone()[0]
+    old_value = cur.fetchone()[3]
+    cur.execute(f"UPDATE {db_schema_base}.simple SET rating=100 WHERE fid={fid}")
+    conn.commit()
+    cur.execute(f"SELECT * from {db_schema_base}.simple WHERE fid={fid}")
+    assert cur.fetchone()[3] == 100
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc, from_gpkg=True)
+    assert "The db schemas already exist but 'base' schema is not synchronized with source GPKG" in str(err.value)
+    # revert back
+    cur.execute(f"UPDATE {db_schema_base}.simple SET rating={old_value} WHERE fid ={fid}")
+    conn.commit()
+
     # make change in GPKG and push to server to create pending changes, it should pass
     shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
     mc.push_project(project_dir)
+    #  remove local copy of project (to mimic loss at docker restart)
+    shutil.rmtree(config.project_working_dir)
     dbsync_init(mc, from_gpkg=True)
 
     # rename base schema to mimic some mismatch
@@ -124,27 +145,21 @@ def test_init_from_gpkg(mc):
     cur.execute(f"ALTER SCHEMA schema_tmp RENAME TO {db_schema_base}")
     conn.commit()
 
-    # remove some feature from 'modified' db to create mismatch with src geopackage, it should pass
+    # update some feature from 'modified' db to create mismatch with src geopackage, it should pass but not sync
     cur.execute(f"SELECT * from {db_schema_main}.simple")
-    cur.execute(f"DELETE FROM {db_schema_main}.simple WHERE fid ={cur.fetchone()[0]}")
+    fid = cur.fetchone()[0]
+    old_value = cur.fetchone()[3]
+    cur.execute(f"UPDATE {db_schema_main}.simple SET rating=100 WHERE fid={fid}")
     conn.commit()
-    cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
-    assert cur.fetchone()[0] == 2
+    cur.execute(f"SELECT * from {db_schema_main}.simple WHERE fid={fid}")
+    assert cur.fetchone()[3] == 100
     dbsync_init(mc, from_gpkg=True)
-
-    # remove some feature from 'base' db to create mismatch with src geopackage
-    cur.execute(f"SELECT * from {db_schema_base}.simple")
-    cur.execute(f"DELETE FROM {db_schema_base}.simple WHERE fid ={cur.fetchone()[0]}")
+    # revert back
+    cur.execute(f"UPDATE {db_schema_main}.simple SET rating={old_value} WHERE fid ={fid}")
     conn.commit()
-    cur.execute(f"SELECT count(*) from {db_schema_base}.simple")
-    assert cur.fetchone()[0] == 2
-
-    with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
-    assert "The db schemas already exist but 'base' schema is not synchronized with source GPKG" in str(err.value)
 
     # make local changes to src file to introduce local changes
-    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(config.project_working_dir, config.mergin_sync_file))
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'base.gpkg'), os.path.join(config.project_working_dir, config.mergin_sync_file))
     with pytest.raises(DbSyncError) as err:
         dbsync_init(mc, from_gpkg=True)
     assert "There are pending changes in the local directory - that should never happen" in str(err.value)

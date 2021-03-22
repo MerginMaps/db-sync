@@ -486,9 +486,10 @@ def dbsync_init(mc, from_gpkg=True):
                                                  config.db_conn_info, config.db_schema_modified)
             summary_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
                                              config.db_conn_info, config.db_schema_base)
-            if len(summary_base):
-                raise DbSyncError("The db schemas already exist but 'base' schema is not synchronized with source GPKG")
-            elif len(summary_modified):
+            if len(summary_base) and not len(summary_modified):
+                raise DbSyncError("The db schemas already exist but 'base' schema is not synchronized with source GPKG "
+                                  "while modified schema is up to date")
+            if len(summary_modified):
                 print("Modified schema is not synchronised with source GPKG, please run pull/push commands to fix it")
                 return
             else:
@@ -518,8 +519,9 @@ def dbsync_init(mc, from_gpkg=True):
                                                 "sqlite", "", gpkg_full_path, config.db_driver)
             summary_base = _compare_datasets(config.db_conn_info, config.db_schema_base,
                                             "sqlite", "", gpkg_full_path, config.db_driver)
-            if len(summary_base):
-                raise DbSyncError("The output GPKG file exists already but it is not synchronized with db 'base' schema")
+            if len(summary_base) and not len(summary_modified):
+                raise DbSyncError("The output GPKG file exists already but it is not synchronized with db 'base' "
+                                  "schema while being synchronized with modified schema")
             elif len(summary_modified):
                 print("The output GPKG file exists already but it is not synchronised with modified schema, "
                       "please run pull/push commands to fix it")
