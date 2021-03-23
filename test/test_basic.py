@@ -102,38 +102,10 @@ def test_init_from_gpkg(mc):
     cur = conn.cursor()
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
-
     # run again, nothing should change
     dbsync_init(mc, from_gpkg=True)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
-
-    # update some feature from 'base' db to create mismatch with src geopackage and modified
-    cur.execute(f"SELECT * from {db_schema_base}.simple")
-    cur.execute(f"DELETE FROM {db_schema_base}.simple WHERE fid ={cur.fetchone()[0]}")
-    conn.commit()
-    cur.execute(f"SELECT count(*) from {db_schema_base}.simple")
-    assert cur.fetchone()[0] == 2
-    cur.execute(f"SELECT * from {db_schema_base}.simple")
-    fid = cur.fetchone()[0]
-    old_value = cur.fetchone()[3]
-    cur.execute(f"UPDATE {db_schema_base}.simple SET rating=100 WHERE fid={fid}")
-    conn.commit()
-    cur.execute(f"SELECT * from {db_schema_base}.simple WHERE fid={fid}")
-    assert cur.fetchone()[3] == 100
-    with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
-    assert "The db schemas already exist but 'base' schema is not synchronized with source GPKG" in str(err.value)
-    # revert back
-    cur.execute(f"UPDATE {db_schema_base}.simple SET rating={old_value} WHERE fid ={fid}")
-    conn.commit()
-
-    # make change in GPKG and push to server to create pending changes, it should pass
-    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
-    mc.push_project(project_dir)
-    #  remove local copy of project (to mimic loss at docker restart)
-    shutil.rmtree(config.project_working_dir)
-    dbsync_init(mc, from_gpkg=True)
 
     # rename base schema to mimic some mismatch
     cur.execute(f"ALTER SCHEMA {db_schema_base} RENAME TO schema_tmp")
@@ -145,18 +117,50 @@ def test_init_from_gpkg(mc):
     cur.execute(f"ALTER SCHEMA schema_tmp RENAME TO {db_schema_base}")
     conn.commit()
 
+    # make change in GPKG and push to server to create pending changes, it should pass but not sync
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
+    mc.push_project(project_dir)
+    #  remove local copy of project (to mimic loss at docker restart)
+    #shutil.rmtree(config.project_working_dir) #FIXME
+    dbsync_init(mc, from_gpkg=True)
+    cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
+    assert cur.fetchone()[0] == 3
+    # pull server changes to db to make sure we can sync again
+    dbsync_pull(mc)
+    cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
+    assert cur.fetchone()[0] == 4
+
     # update some feature from 'modified' db to create mismatch with src geopackage, it should pass but not sync
-    cur.execute(f"SELECT * from {db_schema_main}.simple")
-    fid = cur.fetchone()[0]
+    fid = 1
+    cur.execute(f"SELECT * from {db_schema_main}.simple WHERE fid={fid}")
     old_value = cur.fetchone()[3]
     cur.execute(f"UPDATE {db_schema_main}.simple SET rating=100 WHERE fid={fid}")
     conn.commit()
     cur.execute(f"SELECT * from {db_schema_main}.simple WHERE fid={fid}")
     assert cur.fetchone()[3] == 100
     dbsync_init(mc, from_gpkg=True)
-    # revert back
-    cur.execute(f"UPDATE {db_schema_main}.simple SET rating={old_value} WHERE fid ={fid}")
+    # check geopackage has not been modified - after init we are not synced!
+    gpkg_conn = sqlite3.connect(os.path.join(project_dir, 'test_sync.gpkg'))
+    gpkg_cur = gpkg_conn.cursor()
+    gpkg_cur.execute(f"SELECT * FROM simple WHERE fid={fid}")
+    assert gpkg_cur.fetchone()[3] == old_value
+    # push db changes to server (and download new version to local working dir) to make sure we can sync again
+    dbsync_push(mc)
+    mc.pull_project(project_dir)
+    gpkg_cur.execute(f"SELECT * FROM simple WHERE fid={fid}")
+    assert gpkg_cur.fetchone()[3] == 100
+
+    # update some feature from 'base' db to create mismatch with src geopackage and modified
+    cur.execute(f"SELECT * from {db_schema_base}.simple")
+    fid = cur.fetchone()[0]
+    old_value = cur.fetchone()[3]
+    cur.execute(f"UPDATE {db_schema_base}.simple SET rating=100 WHERE fid={fid}")
     conn.commit()
+    cur.execute(f"SELECT * from {db_schema_base}.simple WHERE fid={fid}")
+    assert cur.fetchone()[3] == 100
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc, from_gpkg=True)
+    assert "The db schemas already exist but 'base' schema is not synchronized with source GPKG" in str(err.value)
 
     # make local changes to src file to introduce local changes
     shutil.copy(os.path.join(TEST_DATA_DIR, 'base.gpkg'), os.path.join(config.project_working_dir, config.mergin_sync_file))
