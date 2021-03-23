@@ -487,10 +487,17 @@ def dbsync_init(mc, from_gpkg=True):
             summary_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
                                              config.db_conn_info, config.db_schema_base)
             if len(summary_base) and not len(summary_modified):
+                # seems someone modified base schema manually - this should never happen!
                 raise DbSyncError("The db schemas already exist but 'base' schema is not synchronized with source GPKG "
                                   "while modified schema is up to date")
-            if len(summary_modified):
+            elif len(summary_modified) and not len(summary_base):
                 print("Modified schema is not synchronised with source GPKG, please run pull/push commands to fix it")
+                return
+            elif len(summary_modified) and len(summary_base):
+                # here we are not sure whether base schema changes are safe (e.g. higher server version of project)
+                # or someone modified base schema manually which should not happen!
+                print("Both modified and base schemas are not synchronised with source GPKG, "
+                      "beware that bad things could happen")
                 return
             else:
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
@@ -522,9 +529,13 @@ def dbsync_init(mc, from_gpkg=True):
             if len(summary_base) and not len(summary_modified):
                 raise DbSyncError("The output GPKG file exists already but it is not synchronized with db 'base' "
                                   "schema while being synchronized with modified schema")
-            elif len(summary_modified):
+            elif len(summary_modified) and not len(summary_base):
                 print("The output GPKG file exists already but it is not synchronised with modified schema, "
                       "please run pull/push commands to fix it")
+                return
+            elif len(summary_modified) and len(summary_base):
+                print("The output GPKG file exists already but both modified and base schemas are not synchronised it, "
+                      "beware that bad things could happen")
                 return
             else:
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
