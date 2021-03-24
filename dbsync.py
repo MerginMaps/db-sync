@@ -21,7 +21,7 @@ import psycopg2
 
 from mergin import MerginClient, MerginProject, LoginError, ClientError
 from version import __version__
-
+from psycopg2 import sql
 
 # set high logging level for geodiff (used by geodiffinfo executable)
 # so we get as much information as possible
@@ -225,6 +225,23 @@ def _get_project_version():
     return mp.metadata["version"]
 
 
+def _set_db_project_comment(conn, schema, project_name, version):
+    """ Set postgres COMMENT on SCHEMA with mergin project name and version """
+    comment = f"{project_name}: {version}"
+    cur = conn.cursor()
+    query = sql.SQL("COMMENT ON SCHEMA {} IS %s").format(sql.Identifier(schema))
+    cur.execute(query.as_string(conn), (comment, ))
+    conn.commit()
+
+
+def _get_db_project_comment(conn, schema):
+    """ Get mergin project name and its current version in db schema"""
+    cur = conn.cursor()
+    cur.execute("SELECT obj_description(%s::regnamespace, 'pg_namespace')", (schema, ))
+    res = cur.fetchone()[0]
+    return res.split(": ")
+
+
 def create_mergin_client():
     """ Create instance of MerginClient"""
     _check_has_password()
@@ -312,7 +329,8 @@ def dbsync_pull(mc):
         _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, tmp_base2their)
 
     os.remove(gpkg_basefile_old)
-
+    conn = psycopg2.connect(config.db_conn_info)
+    _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, server_version)
     print("Pull done!")
 
 
@@ -439,11 +457,13 @@ def dbsync_push(mc):
         # TODO: should we do some cleanup here? (undo changes in the local geopackage?)
         raise DbSyncError("Mergin client error on push: " + str(e))
 
-    print("Pushed new version to Mergin: " + _get_project_version())
+    version = _get_project_version()
+    print("Pushed new version to Mergin: " + version)
 
     # update base schema in the DB
     print("Updating DB base schema...")
     _geodiff_apply_changeset(config.db_driver, config.db_conn_info, config.db_schema_base, tmp_changeset_file)
+    _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, version)
 
     print("Push done!")
 
@@ -453,19 +473,31 @@ def dbsync_init(mc, from_gpkg=True):
 
     # let's start with various environment checks to make sure
     # the environment is set up correctly before doing any work
-    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
-    if not os.path.exists(config.project_working_dir):
-        # download the Mergin project
-        print("Download Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
-        mc.download_project(config.mergin_project_name, config.project_working_dir)
-        # make sure we have working directory now
-        _check_has_working_dir()
-
     print("Connecting to the database...")
     try:
         conn = psycopg2.connect(config.db_conn_info)
     except psycopg2.Error as e:
         raise DbSyncError("Unable to connect to the database: " + str(e))
+
+    base_schema_exists = _check_schema_exists(conn, config.db_schema_base)
+    modified_schema_exists = _check_schema_exists(conn, config.db_schema_modified)
+
+    try:
+        server_info = mc.project_info(config.mergin_project_name)
+    except ClientError as e:
+        raise DbSyncError("Mergin client error: " + str(e))
+
+    gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
+    if not os.path.exists(config.project_working_dir):
+        # download the Mergin project
+        print("Download Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
+        if modified_schema_exists and base_schema_exists:
+            _, version = _get_db_project_comment(conn, config.db_schema_base)
+            mc.download_project(config.mergin_project_name, config.project_working_dir, version)
+        else:
+            mc.download_project(config.mergin_project_name, config.project_working_dir)
+        # make sure we have working directory now
+        _check_has_working_dir()
 
     # check there are no pending changes on server (or locally - which should never happen)
     status_pull, status_push, _ = mc.project_status(config.project_working_dir)
@@ -474,8 +506,6 @@ def dbsync_init(mc, from_gpkg=True):
     if status_push['added'] or status_push['updated'] or status_push['removed']:
         raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
 
-    base_schema_exists = _check_schema_exists(conn, config.db_schema_base)
-    modified_schema_exists = _check_schema_exists(conn, config.db_schema_modified)
     if from_gpkg:
         if not os.path.exists(gpkg_full_path):
             raise DbSyncError("The input GPKG file does not exist: " + gpkg_full_path)
@@ -516,6 +546,10 @@ def dbsync_init(mc, from_gpkg=True):
         # COPY: modified -> base
         _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
                            config.db_driver, config.db_conn_info, config.db_schema_base)
+
+        # mark project version into db schema
+        _set_db_project_comment(conn, config.db_schema_base, f'{server_info["namespace"]}/{server_info["name"]}',
+                                server_info["version"])
     else:
         if not modified_schema_exists:
             raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)

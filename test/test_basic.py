@@ -8,7 +8,8 @@ import tempfile
 import psycopg2
 
 from mergin import MerginClient, ClientError
-from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError, _geodiff_make_copy
+from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError, _geodiff_make_copy, \
+    _get_db_project_comment
 
 GEODIFFINFO_EXE = os.environ.get('TEST_GEODIFFINFO_EXE')
 DB_CONNINFO = os.environ.get('TEST_DB_CONNINFO')
@@ -106,6 +107,9 @@ def test_init_from_gpkg(mc):
     dbsync_init(mc, from_gpkg=True)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
+    proj, version = _get_db_project_comment(conn, db_schema_base)
+    assert proj == config.mergin_project_name
+    assert version == 'v1'
 
     # rename base schema to mimic some mismatch
     cur.execute(f"ALTER SCHEMA {db_schema_base} RENAME TO schema_tmp")
@@ -121,7 +125,7 @@ def test_init_from_gpkg(mc):
     shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
     mc.push_project(project_dir)
     #  remove local copy of project (to mimic loss at docker restart)
-    #shutil.rmtree(config.project_working_dir) #FIXME
+    shutil.rmtree(config.project_working_dir)
     dbsync_init(mc, from_gpkg=True)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
@@ -201,6 +205,8 @@ def test_basic_pull(mc):
     cur = conn.cursor()
     cur.execute("SELECT count(*) from test_sync_pull_main.simple")
     assert cur.fetchone()[0] == 4
+    proj, version = _get_db_project_comment(conn, 'test_sync_pull_base')
+    assert version == 'v2'
 
     print("---")
     dbsync_status(mc)
@@ -231,6 +237,8 @@ def test_basic_push(mc):
 
     # push the change from DB to PostgreSQL
     dbsync_push(mc)
+    proj, version = _get_db_project_comment(conn, 'test_sync_push_base')
+    assert version == 'v2'
 
     # pull new version of the project to the work project directory
     mc.pull_project(project_dir)
@@ -277,7 +285,11 @@ def test_basic_both(mc):
 
     # first pull changes from Mergin to DB (+rebase changes in DB) and then push the changes from DB to Mergin
     dbsync_pull(mc)
+    proj, version = _get_db_project_comment(conn, 'test_sync_both_base')
+    assert version == 'v2'
     dbsync_push(mc)
+    proj, version = _get_db_project_comment(conn, 'test_sync_both_base')
+    assert version == 'v3'
 
     # pull new version of the project to the work project directory
     mc.pull_project(project_dir)
