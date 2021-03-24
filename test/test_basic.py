@@ -107,9 +107,9 @@ def test_init_from_gpkg(mc):
     dbsync_init(mc, from_gpkg=True)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
-    proj, version = _get_db_project_comment(conn, db_schema_base)
-    assert proj == config.mergin_project_name
-    assert version == 'v1'
+    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    assert db_proj_info["name"] == config.mergin_project_name
+    assert db_proj_info["version"] == 'v1'
 
     # rename base schema to mimic some mismatch
     cur.execute(f"ALTER SCHEMA {db_schema_base} RENAME TO schema_tmp")
@@ -205,8 +205,8 @@ def test_basic_pull(mc):
     cur = conn.cursor()
     cur.execute("SELECT count(*) from test_sync_pull_main.simple")
     assert cur.fetchone()[0] == 4
-    proj, version = _get_db_project_comment(conn, 'test_sync_pull_base')
-    assert version == 'v2'
+    db_proj_info = _get_db_project_comment(conn, 'test_sync_pull_base')
+    assert db_proj_info["version"] == 'v2'
 
     print("---")
     dbsync_status(mc)
@@ -237,8 +237,8 @@ def test_basic_push(mc):
 
     # push the change from DB to PostgreSQL
     dbsync_push(mc)
-    proj, version = _get_db_project_comment(conn, 'test_sync_push_base')
-    assert version == 'v2'
+    db_proj_info = _get_db_project_comment(conn, 'test_sync_push_base')
+    assert db_proj_info["version"] == 'v2'
 
     # pull new version of the project to the work project directory
     mc.pull_project(project_dir)
@@ -285,11 +285,11 @@ def test_basic_both(mc):
 
     # first pull changes from Mergin to DB (+rebase changes in DB) and then push the changes from DB to Mergin
     dbsync_pull(mc)
-    proj, version = _get_db_project_comment(conn, 'test_sync_both_base')
-    assert version == 'v2'
+    db_proj_info = _get_db_project_comment(conn, 'test_sync_both_base')
+    assert db_proj_info["version"] == 'v2'
     dbsync_push(mc)
-    proj, version = _get_db_project_comment(conn, 'test_sync_both_base')
-    assert version == 'v3'
+    db_proj_info = _get_db_project_comment(conn, 'test_sync_both_base')
+    assert db_proj_info["version"] == 'v3'
 
     # pull new version of the project to the work project directory
     mc.pull_project(project_dir)
