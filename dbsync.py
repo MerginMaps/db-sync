@@ -622,6 +622,7 @@ def main():
         return
 
     config_filename = 'config.ini'
+    print(f"== Starting Mergin DB Sync version {__version__} ==")
 
     try:
         load_config(config_filename)
