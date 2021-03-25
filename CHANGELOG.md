@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.1
+ -  Fixed handling of local working directory in init function
+
 ## 1.0  (2021/03/25)
 
 The first official release of mergin-db-sync! It includes all the essential functionality to set up and maintain
