@@ -129,10 +129,23 @@ def test_init_from_gpkg(mc):
     dbsync_init(mc, from_gpkg=True)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
+    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    assert db_proj_info["version"] == 'v1'
+
+    # let's remove local working dir and download different version from server to mimic versions mismatch
+    shutil.rmtree(config.project_working_dir)
+    mc.download_project(config.mergin_project_name, config.project_working_dir, 'v2')
+    # run init again, it should handle local working dir properly (e.g. download correct version) and pass but not sync
+    dbsync_init(mc, from_gpkg=True)
+    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    assert db_proj_info["version"] == 'v1'
+
     # pull server changes to db to make sure we can sync again
     dbsync_pull(mc)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 4
+    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    assert db_proj_info["version"] == 'v2'
 
     # update some feature from 'modified' db to create mismatch with src geopackage, it should pass but not sync
     fid = 1
@@ -153,6 +166,8 @@ def test_init_from_gpkg(mc):
     mc.pull_project(project_dir)
     gpkg_cur.execute(f"SELECT * FROM simple WHERE fid={fid}")
     assert gpkg_cur.fetchone()[3] == 100
+    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    assert db_proj_info["version"] == 'v3'
 
     # update some feature from 'base' db to create mismatch with src geopackage and modified
     cur.execute(f"SELECT * from {db_schema_base}.simple")
