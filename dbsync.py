@@ -337,7 +337,8 @@ def dbsync_pull(mc):
 
     os.remove(gpkg_basefile_old)
     conn = psycopg2.connect(config.db_conn_info)
-    _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, server_version)
+    version = _get_project_version()
+    _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, version)
     print("Pull done!")
 
 
@@ -489,26 +490,38 @@ def dbsync_init(mc, from_gpkg=True):
     base_schema_exists = _check_schema_exists(conn, config.db_schema_base)
     modified_schema_exists = _check_schema_exists(conn, config.db_schema_modified)
 
-    try:
-        server_info = mc.project_info(config.mergin_project_name)
-    except ClientError as e:
-        raise DbSyncError("Mergin client error: " + str(e))
-
     gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
-    if not os.path.exists(config.project_working_dir):
-        # download the Mergin project
-        if modified_schema_exists and base_schema_exists:
-            db_proj_info = _get_db_project_comment(conn, config.db_schema_base)
-            if not db_proj_info:
-                raise DbSyncError("Base schema exists but missing which project it belongs to")
-            print("Download version " + db_proj_info["version"] + " of Mergin project " + config.mergin_project_name +
-                  " to " + config.project_working_dir)
+    if modified_schema_exists and base_schema_exists:
+        print("Modified and base schemas already exist")
+        # this is not a first run of db-sync init
+        db_proj_info = _get_db_project_comment(conn, config.db_schema_base)
+        if not db_proj_info:
+            raise DbSyncError("Base schema exists but missing which project it belongs to")
+
+        # make sure working directory contains the same version of project
+        if not os.path.exists(config.project_working_dir):
+            print(f"Downloading version {db_proj_info['version']} of Mergin project {config.mergin_project_name} "
+                  f"to {config.project_working_dir}")
             mc.download_project(config.mergin_project_name, config.project_working_dir, db_proj_info["version"])
         else:
-            print("Download latest Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
+            local_version = _get_project_version()
+            print(f"Working directory {config.project_working_dir} already exists, with project version {local_version}")
+            if local_version != db_proj_info["version"]:
+                print(f"Removing local working directory {config.project_working_dir}")
+                shutil.rmtree(config.project_working_dir)
+                print(f"Downloading version {db_proj_info['version']} of Mergin project {config.mergin_project_name} "
+                      f"to {config.project_working_dir}")
+                mc.download_project(config.mergin_project_name, config.project_working_dir, db_proj_info["version"])
+    else:
+        if not os.path.exists(config.project_working_dir):
+            print("Downloading latest Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
             mc.download_project(config.mergin_project_name, config.project_working_dir)
-        # make sure we have working directory now
-        _check_has_working_dir()
+        else:
+            local_version = _get_project_version()
+            print(f"Working directory {config.project_working_dir} already exists, with project version {local_version}")
+
+    # make sure we have working directory now
+    _check_has_working_dir()
 
     # check there are no pending changes on server (or locally - which should never happen)
     status_pull, status_push, _ = mc.project_status(config.project_working_dir)
@@ -529,6 +542,8 @@ def dbsync_init(mc, from_gpkg=True):
                                              config.db_conn_info, config.db_schema_base)
             if len(summary_base):
                 # seems someone modified base schema manually - this should never happen!
+                print(f"Local project version at {_get_project_version()} and base schema at {db_proj_info['version']}")
+                _print_changes_summary(summary_base, "Base schema changes:")
                 raise DbSyncError("The db schemas already exist but 'base' schema is not synchronized with source GPKG")
             elif len(summary_modified):
                 print("Modified schema is not synchronised with source GPKG, please run pull/push commands to fix it")
@@ -553,8 +568,8 @@ def dbsync_init(mc, from_gpkg=True):
                            config.db_driver, config.db_conn_info, config.db_schema_base)
 
         # mark project version into db schema
-        _set_db_project_comment(conn, config.db_schema_base, f'{server_info["namespace"]}/{server_info["name"]}',
-                                server_info["version"])
+        version = _get_project_version()
+        _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, version)
     else:
         if not modified_schema_exists:
             raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
@@ -566,6 +581,8 @@ def dbsync_init(mc, from_gpkg=True):
             summary_base = _compare_datasets(config.db_conn_info, config.db_schema_base,
                                             "sqlite", "", gpkg_full_path, config.db_driver)
             if len(summary_base):
+                print(f"Local project version at {_get_project_version()} and base schema at {db_proj_info['version']}")
+                _print_changes_summary(summary_base, "Base schema changes:")
                 raise DbSyncError("The output GPKG file exists already but is not synchronized with db 'base' schema")
             elif len(summary_modified):
                 print("The output GPKG file exists already but it is not synchronised with modified schema, "
@@ -596,7 +613,7 @@ def dbsync_init(mc, from_gpkg=True):
 
         # mark project version into db schema
         version = _get_project_version()
-        _set_db_project_comment(conn, config.db_schema_base, f'{server_info["namespace"]}/{server_info["name"]}', version)
+        _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, version)
 
 
 def show_usage():
