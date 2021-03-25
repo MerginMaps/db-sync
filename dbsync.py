@@ -492,6 +492,7 @@ def dbsync_init(mc, from_gpkg=True):
 
     gpkg_full_path = os.path.join(config.project_working_dir, config.mergin_sync_file)
     if modified_schema_exists and base_schema_exists:
+        print("Modified and base schemas already exist")
         # this is not a first run of db-sync init
         db_proj_info = _get_db_project_comment(conn, config.db_schema_base)
         if not db_proj_info:
@@ -504,8 +505,9 @@ def dbsync_init(mc, from_gpkg=True):
             mc.download_project(config.mergin_project_name, config.project_working_dir, db_proj_info["version"])
         else:
             local_version = _get_project_version()
+            print(f"Working directory {config.project_working_dir} already exists, with project version {local_version}")
             if local_version != db_proj_info["version"]:
-                print(f"Removing local working directory {config.project_working_dir} with project version {local_version}")
+                print(f"Removing local working directory {config.project_working_dir}")
                 shutil.rmtree(config.project_working_dir)
                 print(f"Downloading version {db_proj_info['version']} of Mergin project {config.mergin_project_name} "
                       f"to {config.project_working_dir}")
@@ -514,6 +516,9 @@ def dbsync_init(mc, from_gpkg=True):
         if not os.path.exists(config.project_working_dir):
             print("Downloading latest Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
             mc.download_project(config.mergin_project_name, config.project_working_dir)
+        else:
+            local_version = _get_project_version()
+            print(f"Working directory {config.project_working_dir} already exists, with project version {local_version}")
 
     # make sure we have working directory now
     _check_has_working_dir()
