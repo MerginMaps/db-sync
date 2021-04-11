@@ -165,6 +165,21 @@ def _geodiff_rebase(driver, conn_info, base, modified, base2their, conflicts):
     _run_geodiff([config.geodiffinfo_exe, "rebaseEx", driver, conn_info, base, modified, base2their, conflicts])
 
 
+def _geodiff_list_changes_details(changeset):
+    """ Returns a list with changeset details:
+     [ { 'table': 'foo', 'type': 'update', 'changes': [ ... old/new column values ... ] }, ... ]
+    """
+    tmp_dir = tempfile.gettempdir()
+    tmp_output = os.path.join(tmp_dir, 'dbsync-changeset-details')
+    if os.path.exists(tmp_output):
+        os.remove(tmp_output)
+    _run_geodiff([config.geodiffinfo_exe, "listChanges", changeset, tmp_output])
+    with open(tmp_output) as f:
+        out = json.load(f)
+    os.remove(tmp_output)
+    return out["geodiff"]
+
+
 def _geodiff_list_changes_summary(changeset):
     """ Returns a list with changeset summary:
      [ { 'table': 'foo', 'insert': 1, 'update': 2, 'delete': 3 }, ... ]
@@ -188,14 +203,16 @@ def _geodiff_create_changeset_dr(src_driver, src_conn_info, src, dst_driver, dst
     _run_geodiff([config.geodiffinfo_exe, "createChangesetDr", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, changeset])
 
 
-def _compare_datasets(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst):
+def _compare_datasets(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, summary_only=True):
     """ Compare content of two datasets (from various drivers) and return geodiff JSON summary of changes """
     tmp_dir = tempfile.gettempdir()
     tmp_changeset = os.path.join(tmp_dir, ''.join(random.choices(string.ascii_letters, k=8)))
 
     _geodiff_create_changeset_dr(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, tmp_changeset)
-    summary = _geodiff_list_changes_summary(tmp_changeset)
-    return summary
+    if summary_only:
+        return _geodiff_list_changes_summary(tmp_changeset)
+    else:
+        return _geodiff_list_changes_details(tmp_changeset)
 
 
 def _print_changes_summary(summary, label=None):
@@ -567,6 +584,18 @@ def dbsync_init(mc, from_gpkg=True):
         _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
                            config.db_driver, config.db_conn_info, config.db_schema_base)
 
+        # sanity check to verify that right after initialization we do not have any changes
+        # between the 'base' schema and the geopackage in Mergin project, to make sure that
+        # copying data back and forth will keep data intact
+        changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
+                                              config.db_conn_info, config.db_schema_base,
+                                              summary_only=False)
+        if len(changes_gpkg_base):
+            changes = json.dumps(changes_gpkg_base, indent=2)
+            raise DbSyncError("Initialization of db-sync failed due to a bug in geodiff: "
+                              "base schema and gpkg do not match. Please report this problem "
+                              "to mergin-db-sync developers. Changeset (should be empty):\n" + changes)
+
         # mark project version into db schema
         version = _get_project_version()
         _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, version)
@@ -607,6 +636,18 @@ def dbsync_init(mc, from_gpkg=True):
         # COPY: modified -> gpkg
         _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
                            "sqlite", "", gpkg_full_path)
+
+        # sanity check to verify that right after initialization we do not have any changes
+        # between the 'base' schema and the geopackage in Mergin project, to make sure that
+        # copying data back and forth will keep data intact
+        changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
+                                              config.db_conn_info, config.db_schema_base,
+                                              summary_only=False)
+        if len(changes_gpkg_base):
+            changes = json.dumps(changes_gpkg_base, indent=2)
+            raise DbSyncError("Initialization of db-sync failed due to a bug in geodiff: "
+                              "base schema and gpkg do not match. Please report this problem "
+                              "to mergin-db-sync developers. Changeset (should be empty):\n" + changes)
 
         # upload gpkg to mergin (client takes care of storing metadata)
         mc.push_project(config.project_working_dir)
