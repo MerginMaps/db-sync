@@ -10,9 +10,12 @@ import sys
 import time
 
 import dbsync
+from version import __version__
 
 
 def main():
+
+    print(f"== starting mergin-db-sync daemon == version {__version__} ==")
 
     filename = 'config.ini'
     dbsync.load_config(filename)
