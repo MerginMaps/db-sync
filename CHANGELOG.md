@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+- Fixed two bugs related to copying of data between GPKG and PostgreSQL (geodiff #108, #109)
+- Added an extra check during the init to verify data got copied correctly (#37)
+- Added display of mergin-db-sync version when the daemon starts
+
 ## 1.0.1
  -  Fixed handling of local working directory in init function
 
