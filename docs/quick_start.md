@@ -29,15 +29,15 @@ and your full project name for later will be `<username>/<project-name>`, e.g. `
 Download and run db-sync docker image:
 
 ```
-$ sudo docker run --name mergin_db_sync -it lutraconsulting/mergin-db-sync:latest
-  -e DB_CONN_INFO="host=myhost.com dbname=db-sync user=postgres password=top_secret"
-  -e DB_SCHEMA_MODIFIED=sync_data
-  -e DB_SCHEMA_BASE=sync_base
-  -e MERGIN_USERNAME=john   
-  -e MERGIN_PASSWORD=myStrongPassword
-  -e MERGIN_PROJECT_NAME=john/db-sync
-  -e MERGIN_SYNC_FILE=sync_db.gpkg
-  mergin_db_sync python3 dbsync_daemon.py --init-from-db
+$ sudo docker run --name mergin_db_sync -it \
+  -e DB_CONN_INFO="host=myhost.com dbname=db-sync user=postgres password=top_secret" \
+  -e DB_SCHEMA_MODIFIED=sync_data \
+  -e DB_SCHEMA_BASE=sync_base \
+  -e MERGIN_USERNAME=john \
+  -e MERGIN_PASSWORD=myStrongPassword \
+  -e MERGIN_PROJECT_NAME=john/db-sync \
+  -e MERGIN_SYNC_FILE=sync_db.gpkg \
+  lutraconsulting/mergin-db-sync:latest python3 dbsync_daemon.py --init-from-db
 ```
 and you should see a new geopackage file in your Mergin project. To be able to use the Geopackage as a survey layer:
 
