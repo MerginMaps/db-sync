@@ -29,7 +29,7 @@ and your full project name for later will be `<username>/<project-name>`, e.g. `
 Download and run db-sync docker image:
 
 ```
-$ sudo docker run --name mergin_db_sync -it \
+$ sudo docker run --rm --name mergin_db_sync -it \
   -e DB_CONN_INFO="host=myhost.com dbname=db-sync user=postgres password=top_secret" \
   -e DB_SCHEMA_MODIFIED=sync_data \
   -e DB_SCHEMA_BASE=sync_base \
