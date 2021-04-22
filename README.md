@@ -28,7 +28,7 @@ The easiest way to run DB sync is with Docker.
 
 To build the container:
 ```
-docker build -t mergin_db_sync .
+docker build -t mergin-db-sync .
 ```
 
 To run the container, use a command like the following one: 
