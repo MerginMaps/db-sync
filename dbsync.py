@@ -605,10 +605,10 @@ def dbsync_init(mc, from_gpkg=True):
 
         if os.path.exists(gpkg_full_path) and base_schema_exists:
             # make sure output gpkg is in sync with db or fail
-            summary_modified = _compare_datasets(config.db_conn_info, config.db_schema_modified,
-                                                "sqlite", "", gpkg_full_path, config.db_driver)
-            summary_base = _compare_datasets(config.db_conn_info, config.db_schema_base,
-                                            "sqlite", "", gpkg_full_path, config.db_driver)
+            summary_modified = _compare_datasets(config.db_driver, config.db_conn_info, config.db_schema_modified,
+                                                "sqlite", "", gpkg_full_path)
+            summary_base = _compare_datasets(config.db_driver, config.db_conn_info, config.db_schema_base,
+                                            "sqlite", "", gpkg_full_path)
             if len(summary_base):
                 print(f"Local project version at {_get_project_version()} and base schema at {db_proj_info['version']}")
                 _print_changes_summary(summary_base, "Base schema changes:")
