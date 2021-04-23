@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3
+
+- Fixed loss of precision of floating point numbers (geodiff #110)
+- Fixed writing of "empty" flag of geometries (geodiff #112)
+- Support for more PostgreSQL data types - bigint, smallint, character varying (#41, geodiff #111)
+- Fixed initialization from database (#42)
+
 ## 1.0.2
 
 - Fixed two bugs related to copying of data between GPKG and PostgreSQL (geodiff #108, #109)
