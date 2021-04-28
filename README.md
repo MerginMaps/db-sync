@@ -175,5 +175,6 @@ point later one can run `tmux attach` to bring the session back to the foregroun
    ```
    docker build --no-cache -t lutraconsulting/mergin-db-sync .
    docker tag lutraconsulting/mergin-db-sync lutraconsulting/mergin-db-sync:1.0.3
-   docker push lutraconsulting/mergin-db-sync lutraconsulting/mergin-db-sync:1.0.3
+   docker push lutraconsulting/mergin-db-sync:1.0.3
+   docker push lutraconsulting/mergin-db-sync:latest
    ```
