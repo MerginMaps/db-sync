@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4
+
+- More fixes for loss of precision of floating point numbers
+- Fixed support for character varying(X) data type (#44)
+
 ## 1.0.3
 
 - Fixed loss of precision of floating point numbers (geodiff #110)
