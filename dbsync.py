@@ -242,12 +242,16 @@ def _get_project_version():
     return mp.metadata["version"]
 
 
-def _set_db_project_comment(conn, schema, project_name, version):
-    """ Set postgres COMMENT on SCHEMA with mergin project name and version """
+def _set_db_project_comment(conn, schema, project_name, version, error=None):
+    """ Set postgres COMMENT on SCHEMA with mergin project name and version
+        or eventually error message if initialisation failed
+    """
     comment = {
         "name": project_name,
-        "version": version
+        "version": version,
     }
+    if error:
+        comment["error"] = error
     cur = conn.cursor()
     query = sql.SQL("COMMENT ON SCHEMA {} IS %s").format(sql.Identifier(schema))
     cur.execute(query.as_string(conn), (json.dumps(comment), ))
@@ -514,6 +518,13 @@ def dbsync_init(mc, from_gpkg=True):
         db_proj_info = _get_db_project_comment(conn, config.db_schema_base)
         if not db_proj_info:
             raise DbSyncError("Base schema exists but missing which project it belongs to")
+        if "error" in db_proj_info:
+            changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
+                                                  config.db_conn_info, config.db_schema_base,
+                                                  summary_only=False)
+            changes = json.dumps(changes_gpkg_base, indent=2)
+            print(f"Changeset from failed init:\n {changes}")
+            raise DbSyncError(db_proj_info["error"])
 
         # make sure working directory contains the same version of project
         if not os.path.exists(config.project_working_dir):
@@ -539,6 +550,7 @@ def dbsync_init(mc, from_gpkg=True):
 
     # make sure we have working directory now
     _check_has_working_dir()
+    local_version = _get_project_version()
 
     # check there are no pending changes on server (or locally - which should never happen)
     status_pull, status_push, _ = mc.project_status(config.project_working_dir)
@@ -559,7 +571,7 @@ def dbsync_init(mc, from_gpkg=True):
                                              config.db_conn_info, config.db_schema_base)
             if len(summary_base):
                 # seems someone modified base schema manually - this should never happen!
-                print(f"Local project version at {_get_project_version()} and base schema at {db_proj_info['version']}")
+                print(f"Local project version at {local_version} and base schema at {db_proj_info['version']}")
                 _print_changes_summary(summary_base, "Base schema changes:")
                 raise DbSyncError("The db schemas already exist but 'base' schema is not synchronized with source GPKG")
             elif len(summary_modified):
@@ -576,29 +588,34 @@ def dbsync_init(mc, from_gpkg=True):
 
         # initialize: we have an existing GeoPackage in our Mergin project and we want to initialize database
         print("The base and modified schemas do not exist yet, going to initialize them ...")
-        # COPY: gpkg -> modified
-        _geodiff_make_copy("sqlite", "", gpkg_full_path,
-                           config.db_driver, config.db_conn_info, config.db_schema_modified)
+        try:
+            # COPY: gpkg -> modified
+            _geodiff_make_copy("sqlite", "", gpkg_full_path,
+                               config.db_driver, config.db_conn_info, config.db_schema_modified)
 
-        # COPY: modified -> base
-        _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
-                           config.db_driver, config.db_conn_info, config.db_schema_base)
+            # COPY: modified -> base
+            _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
+                               config.db_driver, config.db_conn_info, config.db_schema_base)
 
-        # sanity check to verify that right after initialization we do not have any changes
-        # between the 'base' schema and the geopackage in Mergin project, to make sure that
-        # copying data back and forth will keep data intact
-        changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
-                                              config.db_conn_info, config.db_schema_base,
-                                              summary_only=False)
-        if len(changes_gpkg_base):
-            changes = json.dumps(changes_gpkg_base, indent=2)
-            raise DbSyncError("Initialization of db-sync failed due to a bug in geodiff: "
-                              "base schema and gpkg do not match. Please report this problem "
-                              "to mergin-db-sync developers. Changeset (should be empty):\n" + changes)
+            # sanity check to verify that right after initialization we do not have any changes
+            # between the 'base' schema and the geopackage in Mergin project, to make sure that
+            # copying data back and forth will keep data intact
+            changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
+                                                  config.db_conn_info, config.db_schema_base,
+                                                  summary_only=False)
+            # mark project version into db schema
+            if len(changes_gpkg_base):
+                changes = json.dumps(changes_gpkg_base, indent=2)
+                print(f"Changeset after internal copy (should be empty):\n {changes}")
+                raise DbSyncError
+        except DbSyncError:
+            # add comment to base schema before throwing exception
+            _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, local_version,
+                                    error='Initialization of db-sync failed due to a bug in geodiff.\n '
+                                          'Please report this problem to mergin-db-sync developers')
+            raise
 
-        # mark project version into db schema
-        version = _get_project_version()
-        _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, version)
+        _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, local_version)
     else:
         if not modified_schema_exists:
             raise DbSyncError("The 'modified' schema does not exist: " + config.db_schema_modified)
@@ -629,25 +646,30 @@ def dbsync_init(mc, from_gpkg=True):
         # initialize: we have an existing schema in database with tables and we want to initialize geopackage
         # within our Mergin project
         print("The base schema and the output GPKG do not exist yet, going to initialize them ...")
-        # COPY: modified -> base
-        _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
-                           config.db_driver, config.db_conn_info, config.db_schema_base)
+        try:
+            # COPY: modified -> base
+            _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
+                               config.db_driver, config.db_conn_info, config.db_schema_base)
 
-        # COPY: modified -> gpkg
-        _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
-                           "sqlite", "", gpkg_full_path)
+            # COPY: modified -> gpkg
+            _geodiff_make_copy(config.db_driver, config.db_conn_info, config.db_schema_modified,
+                               "sqlite", "", gpkg_full_path)
 
-        # sanity check to verify that right after initialization we do not have any changes
-        # between the 'base' schema and the geopackage in Mergin project, to make sure that
-        # copying data back and forth will keep data intact
-        changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
-                                              config.db_conn_info, config.db_schema_base,
-                                              summary_only=False)
-        if len(changes_gpkg_base):
-            changes = json.dumps(changes_gpkg_base, indent=2)
-            raise DbSyncError("Initialization of db-sync failed due to a bug in geodiff: "
-                              "base schema and gpkg do not match. Please report this problem "
-                              "to mergin-db-sync developers. Changeset (should be empty):\n" + changes)
+            # sanity check to verify that right after initialization we do not have any changes
+            # between the 'base' schema and the geopackage in Mergin project, to make sure that
+            # copying data back and forth will keep data intact
+            changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
+                                                  config.db_conn_info, config.db_schema_base,
+                                                  summary_only=False)
+            if len(changes_gpkg_base):
+                changes = json.dumps(changes_gpkg_base, indent=2)
+                print(f"Changeset after internal copy (should be empty):\n {changes}")
+                raise DbSyncError
+        except DbSyncError:
+            _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, local_version,
+                                    error='Initialization of db-sync failed due to a bug in geodiff.\n '
+                                          'Please report this problem to mergin-db-sync developers')
+            raise
 
         # upload gpkg to mergin (client takes care of storing metadata)
         mc.push_project(config.project_working_dir)
