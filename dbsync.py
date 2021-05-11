@@ -607,12 +607,12 @@ def dbsync_init(mc, from_gpkg=True):
             if len(changes_gpkg_base):
                 changes = json.dumps(changes_gpkg_base, indent=2)
                 print(f"Changeset after internal copy (should be empty):\n {changes}")
-                raise DbSyncError
+                raise DbSyncError('Initialization of db-sync failed due to a bug in geodiff.\n '
+                                  'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
             # add comment to base schema before throwing exception
             _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, local_version,
-                                    error='Initialization of db-sync failed due to a bug in geodiff.\n '
-                                          'Please report this problem to mergin-db-sync developers')
+                                    error='Initialization of db-sync failed due to a bug in geodiff')
             raise
 
         _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, local_version)
@@ -664,11 +664,11 @@ def dbsync_init(mc, from_gpkg=True):
             if len(changes_gpkg_base):
                 changes = json.dumps(changes_gpkg_base, indent=2)
                 print(f"Changeset after internal copy (should be empty):\n {changes}")
-                raise DbSyncError
+                raise DbSyncError('Initialization of db-sync failed due to a bug in geodiff.\n '
+                                  'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
             _set_db_project_comment(conn, config.db_schema_base, config.mergin_project_name, local_version,
-                                    error='Initialization of db-sync failed due to a bug in geodiff.\n '
-                                          'Please report this problem to mergin-db-sync developers')
+                                    error='Initialization of db-sync failed due to a bug in geodiff')
             raise
 
         # upload gpkg to mergin (client takes care of storing metadata)
