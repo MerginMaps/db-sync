@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     git \
     libpq-dev \
+    libsqlite3-dev \
     python3-pip \
     python3-psycopg2 \
  && rm -rf /var/lib/apt/lists/*
