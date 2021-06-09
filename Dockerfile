@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m pip install --upgrade pip
 RUN pip3 install mergin-client
 
-# geodiff (needed with PostgreSQL support and in master version)
-RUN git clone https://github.com/lutraconsulting/geodiff.git
+# geodiff (version >= 1.0.0 is needed with PostgreSQL support - we have to compile it)
+RUN git clone --branch 1.0.0 https://github.com/lutraconsulting/geodiff.git
 RUN cd geodiff && mkdir build && cd build && \
     cmake -DWITH_POSTGRESQL=TRUE ../geodiff && \
     make

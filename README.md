@@ -135,7 +135,7 @@ CREATE TABLE sync_data.points (
 To run automatic tests:
 
     cd mergin
-    export TEST_GEODIFFINFO_EXE=<geodiffinfo>   # path to geodiffinfo executable
+    export TEST_GEODIFF_EXE=<geodiff>           # path to geodiff executable
     export TEST_DB_CONNINFO=<conninfo>          # connection info for DB
     export TEST_MERGIN_URL=<url>                # testing server
     export TEST_API_USERNAME=<username>

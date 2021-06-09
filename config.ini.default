@@ -1,7 +1,7 @@
 
 [general]
 working_dir=/tmp/dbsync
-geodiffinfo_exe=geodiffinfo
+geodiff_exe=geodiff
 
 [mergin]
 username=john

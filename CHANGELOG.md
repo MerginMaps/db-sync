@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.5
+
+- Switched to geodiff 1.0 and mergin-client 0.6 (#49)
+- Robustness improvement: mark base schema as invalid if init fails (#46)
+
 ## 1.0.4
 
 - More fixes for loss of precision of floating point numbers

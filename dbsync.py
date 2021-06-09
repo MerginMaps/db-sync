@@ -23,7 +23,7 @@ from mergin import MerginClient, MerginProject, LoginError, ClientError
 from version import __version__
 from psycopg2 import sql
 
-# set high logging level for geodiff (used by geodiffinfo executable)
+# set high logging level for geodiff (used by geodiff executable)
 # so we get as much information as possible
 os.environ["GEODIFF_LOGGER_LEVEL"] = '4'   # 0 = nothing, 1 = errors, 2 = warning, 3 = info, 4 = debug
 
@@ -37,7 +37,7 @@ class Config:
 
     def __init__(self):
         self.project_working_dir = None
-        self.geodiffinfo_exe = None
+        self.geodiff_exe = None
 
         self.mergin_url = 'https://public.cloudmergin.com'
 
@@ -76,7 +76,7 @@ class Config:
         cfg.read(filename)
 
         self.project_working_dir = cfg['general']['working_dir']
-        self.geodiffinfo_exe = cfg['general']['geodiffinfo_exe']
+        self.geodiff_exe = cfg['general']['geodiff_exe']
 
         if 'mergin' in cfg:
             cfg_mergin = cfg['mergin']
@@ -143,26 +143,26 @@ def _check_has_password():
 
 
 def _run_geodiff(cmd):
-    """ will run a command (with geodiffinfo) and report what got to stderr and raise exception
+    """ will run a command (with geodiff) and report what got to stderr and raise exception
     if the command returns non-zero exit code """
     res = subprocess.run(cmd, stderr=subprocess.PIPE)
     geodiff_stderr = res.stderr.decode()
     if geodiff_stderr:
         print("GEODIFF: " + geodiff_stderr)
     if res.returncode != 0:
-        raise DbSyncError("geodiffinfo failed!\n" + str(cmd))
+        raise DbSyncError("geodiff failed!\n" + str(cmd))
 
 
 def _geodiff_create_changeset(driver, conn_info, base, modified, changeset):
-    _run_geodiff([config.geodiffinfo_exe, "createChangesetEx", driver, conn_info, base, modified, changeset])
+    _run_geodiff([config.geodiff_exe, "diff", "--driver", driver, conn_info, base, modified, changeset])
 
 
 def _geodiff_apply_changeset(driver, conn_info, base, changeset):
-    _run_geodiff([config.geodiffinfo_exe, "applyChangesetEx", driver, conn_info, base, changeset])
+    _run_geodiff([config.geodiff_exe, "apply", "--driver", driver, conn_info, base, changeset])
 
 
-def _geodiff_rebase(driver, conn_info, base, modified, base2their, conflicts):
-    _run_geodiff([config.geodiffinfo_exe, "rebaseEx", driver, conn_info, base, modified, base2their, conflicts])
+def _geodiff_rebase(driver, conn_info, base, our, base2their, conflicts):
+    _run_geodiff([config.geodiff_exe, "rebase-db", "--driver", driver, conn_info, base, our, base2their, conflicts])
 
 
 def _geodiff_list_changes_details(changeset):
@@ -173,7 +173,7 @@ def _geodiff_list_changes_details(changeset):
     tmp_output = os.path.join(tmp_dir, 'dbsync-changeset-details')
     if os.path.exists(tmp_output):
         os.remove(tmp_output)
-    _run_geodiff([config.geodiffinfo_exe, "listChanges", changeset, tmp_output])
+    _run_geodiff([config.geodiff_exe, "as-json", changeset, tmp_output])
     with open(tmp_output) as f:
         out = json.load(f)
     os.remove(tmp_output)
@@ -188,7 +188,7 @@ def _geodiff_list_changes_summary(changeset):
     tmp_output = os.path.join(tmp_dir, 'dbsync-changeset-summary')
     if os.path.exists(tmp_output):
         os.remove(tmp_output)
-    _run_geodiff([config.geodiffinfo_exe, "listChangesSummary", changeset, tmp_output])
+    _run_geodiff([config.geodiff_exe, "as-summary", changeset, tmp_output])
     with open(tmp_output) as f:
         out = json.load(f)
     os.remove(tmp_output)
@@ -196,11 +196,11 @@ def _geodiff_list_changes_summary(changeset):
 
 
 def _geodiff_make_copy(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst):
-    _run_geodiff([config.geodiffinfo_exe, "makeCopy", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst])
+    _run_geodiff([config.geodiff_exe, "copy", "--driver-1", src_driver, src_conn_info, "--driver-2", dst_driver, dst_conn_info, src, dst])
 
 
 def _geodiff_create_changeset_dr(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, changeset):
-    _run_geodiff([config.geodiffinfo_exe, "createChangesetDr", src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, changeset])
+    _run_geodiff([config.geodiff_exe, "diff", "--driver-1", src_driver, src_conn_info, "--driver-2", dst_driver, dst_conn_info, src, dst, changeset])
 
 
 def _compare_datasets(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, summary_only=True):

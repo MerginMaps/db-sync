@@ -11,7 +11,7 @@ from mergin import MerginClient, ClientError
 from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError, _geodiff_make_copy, \
     _get_db_project_comment
 
-GEODIFFINFO_EXE = os.environ.get('TEST_GEODIFFINFO_EXE')
+GEODIFF_EXE = os.environ.get('TEST_GEODIFF_EXE')
 DB_CONNINFO = os.environ.get('TEST_DB_CONNINFO')
 SERVER_URL = os.environ.get('TEST_MERGIN_URL')
 API_USER = os.environ.get('TEST_API_USERNAME')
@@ -74,7 +74,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
     mc.push_project(project_dir)
 
     # prepare dbsync config
-    config.geodiffinfo_exe = GEODIFFINFO_EXE
+    config.geodiff_exe = GEODIFF_EXE
     config.mergin_username = API_USER
     config.mergin_password = USER_PWD
     config.mergin_url = SERVER_URL
