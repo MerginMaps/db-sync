@@ -1,6 +1,6 @@
 # DB Sync Script
 
-This tool takes care of two-way synchronization between Mergin and another database (currently supporting PostGIS).
+This tool takes care of two-way synchronization between [Mergin](public.cloudmergin.com) and another database (currently supporting PostGIS).
 
 That means you can:
 - insert / update / delete features in PostGIS database - and the changes will get automatically
@@ -21,6 +21,8 @@ That means you can:
 ### Quick start
 
 Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync between your database and a new Mergin project.
+
+<div><img align="left" width="45" height="45" src="https://raw.githubusercontent.com/MerginMaps/docs/main/src/.vuepress/public/slack.svg"><a href="https://merginmaps.com/community/join">Join our community chat</a><br/>and ask questions!</div><br />
 
 ### Running with Docker
 
