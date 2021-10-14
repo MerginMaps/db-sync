@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.6
+
+- Updated to geodiff 1.0.4 and mergin-client 0.6.5 (#50)
+
 ## 1.0.5
 
 - Switched to geodiff 1.0 and mergin-client 0.6 (#49)
