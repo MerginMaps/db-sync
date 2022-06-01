@@ -1,6 +1,6 @@
 # DB Sync Script
 
-This tool takes care of two-way synchronization between [Mergin Maps](https://app.merginmaps.com/) and another database (currently supporting PostGIS).
+This tool takes care of two-way synchronization between [Mergin Maps](https://merginmaps.com/) and another database (currently supporting PostGIS).
 
 That means you can:
 - insert / update / delete features in PostGIS database - and the changes will get automatically

@@ -47,7 +47,7 @@ and you should see a new geopackage file in your Mergin Maps project. To be able
 - Save the QGIS project on the same folder as the downloaded gpkg file
 - Upload the QGIS project to your Mergin Maps project
 
-The QGIS and Geopackage files will be a valid Mergin Maps project ready for surveying. Read more about QGIS project configuration on [Mergin Maps](https://merginmaps.com/docs/) and [Mergin Maps Input](https://help.inputapp.io/) documentations.
+The QGIS and Geopackage files will be a valid Mergin Maps project ready for surveying. Read more about QGIS project configuration on [Mergin Maps](https://merginmaps.com/docs/) and [Mergin Maps Input](https://merginmaps.com/docs/) documentations.
 
 ![new_project_3](images/new_proj3.png)
 
