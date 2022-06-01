@@ -1,5 +1,5 @@
 """
-Mergin DB Sync - a tool for two-way synchronization between Mergin and a PostGIS database
+Mergin Maps DB Sync - a tool for two-way synchronization between Mergin Maps and a PostGIS database
 
 Copyright (C) 2020 Lutra Consulting
 
@@ -39,7 +39,7 @@ class Config:
         self.project_working_dir = None
         self.geodiff_exe = None
 
-        self.mergin_url = 'https://public.cloudmergin.com'
+        self.mergin_url = 'https://app.merginmaps.com/'
 
         self.mergin_username = None
         self.mergin_password = None
@@ -118,7 +118,7 @@ def _check_has_working_dir():
         raise DbSyncError("The project working directory does not exist: " + config.project_working_dir)
 
     if not os.path.exists(os.path.join(config.project_working_dir, '.mergin')):
-        raise DbSyncError("The project working directory does not seem to contain Mergin project: " + config.project_working_dir)
+        raise DbSyncError("The project working directory does not seem to contain Mergin Maps project: " + config.project_working_dir)
 
 
 def _check_has_sync_file():
@@ -137,9 +137,9 @@ def _check_schema_exists(conn, schema_name):
 
 
 def _check_has_password():
-    """ Checks whether we have password for Mergin user - if not, we will ask for it """
+    """ Checks whether we have password for Mergin Maps user - if not, we will ask for it """
     if config.mergin_password is None:
-        config.mergin_password = getpass.getpass(prompt="Mergin password for '{}': ".format(config.mergin_username))
+        config.mergin_password = getpass.getpass(prompt="Mergin Maps password for '{}': ".format(config.mergin_username))
 
 
 def _run_geodiff(cmd):
@@ -243,7 +243,7 @@ def _get_project_version():
 
 
 def _set_db_project_comment(conn, schema, project_name, version, error=None):
-    """ Set postgres COMMENT on SCHEMA with mergin project name and version
+    """ Set postgres COMMENT on SCHEMA with Mergin Maps project name and version
         or eventually error message if initialisation failed
     """
     comment = {
@@ -259,7 +259,7 @@ def _set_db_project_comment(conn, schema, project_name, version, error=None):
 
 
 def _get_db_project_comment(conn, schema):
-    """ Get mergin project name and its current version in db schema"""
+    """ Get Mergin Maps project name and its current version in db schema"""
     cur = conn.cursor()
     cur.execute("SELECT obj_description(%s::regnamespace, 'pg_namespace')", (schema, ))
     res = cur.fetchone()[0]
@@ -277,22 +277,22 @@ def create_mergin_client():
         return MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password, plugin_version=f"DB-sync/{__version__}")
     except LoginError as e:
         # this could be auth failure, but could be also server problem (e.g. worker crash)
-        raise DbSyncError(f"Unable to log in to Mergin: {str(e)} \n\n" +
+        raise DbSyncError(f"Unable to log in to Mergin Maps: {str(e)} \n\n" +
                           "Have you specified correct credentials in configuration file?")
     except ClientError as e:
         # this could be e.g. DNS error
-        raise DbSyncError("Mergin client error: " + str(e))
+        raise DbSyncError("Mergin Maps client error: " + str(e))
 
 
 def dbsync_pull(mc):
-    """ Downloads any changes from Mergin and applies them to the database """
+    """ Downloads any changes from Mergin Maps and applies them to the database """
 
     _check_has_working_dir()
     _check_has_sync_file()
 
     mp = MerginProject(config.project_working_dir)
     if mp.geodiff is None:
-        raise DbSyncError("Mergin client installation problem: geodiff not available")
+        raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
     project_path = mp.metadata["name"]
     local_version = mp.metadata["version"]
 
@@ -301,14 +301,14 @@ def dbsync_pull(mc):
         server_version = projects[project_path]["version"]
     except ClientError as e:
         # this could be e.g. DNS error
-        raise DbSyncError("Mergin client error: " + str(e))
+        raise DbSyncError("Mergin Maps client error: " + str(e))
 
     status_push = mp.get_push_changes()
     if status_push['added'] or status_push['updated'] or status_push['removed']:
         raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
 
     if server_version == local_version:
-        print("No changes on Mergin.")
+        print("No changes on Mergin Maps.")
         return
 
     gpkg_basefile = os.path.join(config.project_working_dir, '.mergin', config.mergin_sync_file)
@@ -334,16 +334,16 @@ def dbsync_pull(mc):
         mc.pull_project(config.project_working_dir)  # will do rebase as needed
     except ClientError as e:
         # TODO: do we need some cleanup here?
-        raise DbSyncError("Mergin client error on pull: " + str(e))
+        raise DbSyncError("Mergin Maps client error on pull: " + str(e))
 
-    print("Pulled new version from Mergin: " + _get_project_version())
+    print("Pulled new version from Mergin Maps: " + _get_project_version())
 
     # simple case when there are no pending local changes - just apply whatever changes are coming
     _geodiff_create_changeset("sqlite", "", gpkg_basefile_old, gpkg_basefile, tmp_base2their)
 
     # summarize changes
     summary = _geodiff_list_changes_summary(tmp_base2their)
-    _print_changes_summary(summary, "Mergin Changes:")
+    _print_changes_summary(summary, "Mergin Maps Changes:")
 
     if not needs_rebase:
         print("Applying new version [no rebase]")
@@ -364,7 +364,7 @@ def dbsync_pull(mc):
 
 
 def dbsync_status(mc):
-    """ Figure out if there are any pending changes in the database or in Mergin """
+    """ Figure out if there are any pending changes in the database or in Mergin Maps"""
 
     _check_has_working_dir()
     _check_has_sync_file()
@@ -372,7 +372,7 @@ def dbsync_status(mc):
     # get basic information
     mp = MerginProject(config.project_working_dir)
     if mp.geodiff is None:
-        raise DbSyncError("Mergin client installation problem: geodiff not available")
+        raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
     status_push = mp.get_push_changes()
     if status_push['added'] or status_push['updated'] or status_push['removed']:
         raise DbSyncError("Pending changes in the local directory - that should never happen! " + str(status_push))
@@ -380,7 +380,7 @@ def dbsync_status(mc):
     project_path = mp.metadata["name"]
     local_version = mp.metadata["version"]
     print("Working directory " + config.project_working_dir)
-    print("Mergin project " + project_path + " at local version " + local_version)
+    print("Mergin Maps project " + project_path + " at local version " + local_version)
     print("")
     print("Checking status...")
 
@@ -388,7 +388,7 @@ def dbsync_status(mc):
     try:
         server_info = mc.project_info(project_path, since=local_version)
     except ClientError as e:
-        raise DbSyncError("Mergin client error: " + str(e))
+        raise DbSyncError("Mergin Maps client error: " + str(e))
 
     print("Server is at version " + server_info["version"])
 
@@ -424,7 +424,7 @@ def dbsync_status(mc):
 
 
 def dbsync_push(mc):
-    """ Take changes in the 'modified' schema in the database and push them to Mergin """
+    """ Take changes in the 'modified' schema in the database and push them to Mergin Maps"""
 
     tmp_dir = tempfile.gettempdir()
     tmp_changeset_file = os.path.join(tmp_dir, 'dbsync-push-base2our')
@@ -436,7 +436,7 @@ def dbsync_push(mc):
 
     mp = MerginProject(config.project_working_dir)
     if mp.geodiff is None:
-        raise DbSyncError("Mergin client installation problem: geodiff not available")
+        raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
     project_path = mp.metadata["name"]
     local_version = mp.metadata["version"]
 
@@ -445,7 +445,7 @@ def dbsync_push(mc):
         server_version = projects[project_path]["version"]
     except ClientError as e:
         # this could be e.g. DNS error
-        raise DbSyncError("Mergin client error: " + str(e))
+        raise DbSyncError("Mergin Maps client error: " + str(e))
 
     status_push = mp.get_push_changes()
     if status_push['added'] or status_push['updated'] or status_push['removed']:
@@ -484,10 +484,10 @@ def dbsync_push(mc):
         mc.push_project(config.project_working_dir)
     except ClientError as e:
         # TODO: should we do some cleanup here? (undo changes in the local geopackage?)
-        raise DbSyncError("Mergin client error on push: " + str(e))
+        raise DbSyncError("Mergin Maps client error on push: " + str(e))
 
     version = _get_project_version()
-    print("Pushed new version to Mergin: " + version)
+    print("Pushed new version to Mergin Maps: " + version)
 
     # update base schema in the DB
     print("Updating DB base schema...")
@@ -498,7 +498,7 @@ def dbsync_push(mc):
 
 
 def dbsync_init(mc, from_gpkg=True):
-    """ Initialize the dbsync so that it is possible to do two-way sync between Mergin and a database """
+    """ Initialize the dbsync so that it is possible to do two-way sync between Mergin Maps and a database """
 
     # let's start with various environment checks to make sure
     # the environment is set up correctly before doing any work
@@ -528,7 +528,7 @@ def dbsync_init(mc, from_gpkg=True):
 
         # make sure working directory contains the same version of project
         if not os.path.exists(config.project_working_dir):
-            print(f"Downloading version {db_proj_info['version']} of Mergin project {config.mergin_project_name} "
+            print(f"Downloading version {db_proj_info['version']} of Mergin Maps project {config.mergin_project_name} "
                   f"to {config.project_working_dir}")
             mc.download_project(config.mergin_project_name, config.project_working_dir, db_proj_info["version"])
         else:
@@ -537,12 +537,12 @@ def dbsync_init(mc, from_gpkg=True):
             if local_version != db_proj_info["version"]:
                 print(f"Removing local working directory {config.project_working_dir}")
                 shutil.rmtree(config.project_working_dir)
-                print(f"Downloading version {db_proj_info['version']} of Mergin project {config.mergin_project_name} "
+                print(f"Downloading version {db_proj_info['version']} of Mergin Maps project {config.mergin_project_name} "
                       f"to {config.project_working_dir}")
                 mc.download_project(config.mergin_project_name, config.project_working_dir, db_proj_info["version"])
     else:
         if not os.path.exists(config.project_working_dir):
-            print("Downloading latest Mergin project " + config.mergin_project_name + " to " + config.project_working_dir)
+            print("Downloading latest Mergin Maps project " + config.mergin_project_name + " to " + config.project_working_dir)
             mc.download_project(config.mergin_project_name, config.project_working_dir)
         else:
             local_version = _get_project_version()
@@ -586,7 +586,7 @@ def dbsync_init(mc, from_gpkg=True):
         elif base_schema_exists:
             raise DbSyncError(f"The base schema exists but the modified schema is missing: {config.db_schema_modified}")
 
-        # initialize: we have an existing GeoPackage in our Mergin project and we want to initialize database
+        # initialize: we have an existing GeoPackage in our Mergin Maps project and we want to initialize database
         print("The base and modified schemas do not exist yet, going to initialize them ...")
         try:
             # COPY: gpkg -> modified
@@ -598,7 +598,7 @@ def dbsync_init(mc, from_gpkg=True):
                                config.db_driver, config.db_conn_info, config.db_schema_base)
 
             # sanity check to verify that right after initialization we do not have any changes
-            # between the 'base' schema and the geopackage in Mergin project, to make sure that
+            # between the 'base' schema and the geopackage in Mergin Maps project, to make sure that
             # copying data back and forth will keep data intact
             changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
                                                   config.db_conn_info, config.db_schema_base,
@@ -644,7 +644,7 @@ def dbsync_init(mc, from_gpkg=True):
             raise DbSyncError(f"The base schema exists but the output GPKG exists is missing: {gpkg_full_path}")
 
         # initialize: we have an existing schema in database with tables and we want to initialize geopackage
-        # within our Mergin project
+        # within our Mergin Maps project
         print("The base schema and the output GPKG do not exist yet, going to initialize them ...")
         try:
             # COPY: modified -> base
@@ -656,7 +656,7 @@ def dbsync_init(mc, from_gpkg=True):
                                "sqlite", "", gpkg_full_path)
 
             # sanity check to verify that right after initialization we do not have any changes
-            # between the 'base' schema and the geopackage in Mergin project, to make sure that
+            # between the 'base' schema and the geopackage in Mergin Maps project, to make sure that
             # copying data back and forth will keep data intact
             changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, config.db_driver,
                                                   config.db_conn_info, config.db_schema_base,
@@ -671,7 +671,7 @@ def dbsync_init(mc, from_gpkg=True):
                                     error='Initialization of db-sync failed due to a bug in geodiff')
             raise
 
-        # upload gpkg to mergin (client takes care of storing metadata)
+        # upload gpkg to Mergin Maps (client takes care of storing metadata)
         mc.push_project(config.project_working_dir)
 
         # mark project version into db schema
@@ -685,8 +685,8 @@ def show_usage():
     print("    dbsync init-from-db   = will create base schema in DB + create gpkg file in working copy")
     print("    dbsync init-from-gpkg = will create base and main schema in DB from gpkg file in working copy")
     print("    dbsync status      = will check whether there is anything to pull or push")
-    print("    dbsync push        = will push changes from DB to mergin")
-    print("    dbsync pull        = will pull changes from mergin to DB")
+    print("    dbsync push        = will push changes from DB to Mergin Maps")
+    print("    dbsync pull        = will pull changes from Mergin Maps to DB")
 
 
 def load_config(config_filename):
@@ -702,11 +702,11 @@ def main():
         return
 
     config_filename = 'config.ini'
-    print(f"== Starting Mergin DB Sync version {__version__} ==")
+    print(f"== Starting Mergin Maps DB Sync version {__version__} ==")
 
     try:
         load_config(config_filename)
-        print("Logging in to Mergin...")
+        print("Logging in to Mergin Maps...")
         mc = create_mergin_client()
 
         if sys.argv[1] == 'init-from-gpkg':

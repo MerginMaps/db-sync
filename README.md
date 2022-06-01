@@ -1,26 +1,26 @@
 # DB Sync Script
 
-This tool takes care of two-way synchronization between [Mergin](public.cloudmergin.com) and another database (currently supporting PostGIS).
+This tool takes care of two-way synchronization between [Mergin Maps](https://app.merginmaps.com/) and another database (currently supporting PostGIS).
 
 That means you can:
 - insert / update / delete features in PostGIS database - and the changes will get automatically
-  pushed to a configured Mergin project
-- insert / update / delete features in a GeoPackage in Mergin project - and the changes will get
-  automatically pushed to the PostGIS database 
+  pushed to a configured Mergin Maps project
+- insert / update / delete features in a GeoPackage in Mergin Maps project - and the changes will get
+  automatically pushed to the PostGIS database
 
 ### How does it work
 
-- a single GeoPackage file in a Mergin project is treated as an equivalent of a database schema - both can contain
+- a single GeoPackage file in a Mergin Maps project is treated as an equivalent of a database schema - both can contain
   multiple tables with data
 - after the initialization, DB sync tool uses "main" schema in database (where any user editing may happen)
   and "base" schema (where only DB sync tool is allowed to do changes)
-- the "base" schema contains the same data as the most recently known project version in Mergin, and it is used
+- the "base" schema contains the same data as the most recently known project version in Mergin Maps, and it is used
   to figure out whether there have been any changes in the database - if there were, they will be pushed
-  to the appropriate GeoPackage in Mergin project
-  
+  to the appropriate GeoPackage in Mergin Maps project
+
 ### Quick start
 
-Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync between your database and a new Mergin project.
+Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync between your database and a new Mergin Maps project.
 
 <div><img align="left" width="45" height="45" src="https://raw.githubusercontent.com/MerginMaps/docs/main/src/.vuepress/public/slack.svg"><a href="https://merginmaps.com/community/join">Join our community chat</a><br/>and ask questions!</div><br />
 
@@ -42,19 +42,19 @@ sudo docker run -it \
 ```
 
 This will create `sync_main` and `sync_base` schemas in the PostgreSQL database based on the table
-schemas and from the `sync_db.gpkg` GeoPackage in `john/my_project` Mergin project, and they will
+schemas and from the `sync_db.gpkg` GeoPackage in `john/my_project` Mergin Maps project, and they will
 get populated by the existing data. Afterwards, the sync process will start, regularly checking both
-Mergin service and your PostgreSQL for any new changes.
+Mergin Maps service and your PostgreSQL for any new changes.
 
 Please make sure the PostgreSQL user in the database connection info has sufficient permissions
-to create schemas and tables.  
+to create schemas and tables.
 
 ### Installation
 
 If you would like to avoid the manual installation steps, please follow the guide on using
 DB sync with Docker above.
 
-1. Install Mergin client: `pip3 install mergin-client`
+1. Install Mergin Maps client: `pip3 install mergin-client`
 
    If you get `ModuleNotFoundError: No module named 'skbuild'` error, try to update pip with command
 `python -m pip install --upgrade pip`
@@ -79,25 +79,25 @@ Initialization:
 1. set up configuration in config.ini  (see config.ini.default for a sample)
 2. run dbsync initialization. There are two options:
 
-   A. Init from Mergin project: if you have an existing Mergin project with a GeoPackage
+   A. Init from Mergin Maps project: if you have an existing Mergin Maps project with a GeoPackage
       that already contains tables with data, this command will create schemas in your database:
       ```
       python3 dbsync.py init-from-gpkg
       ```
       This will create 'base' and 'modified' schemas in the database and populate them with data.
-    
+
    B. Init from database: if you have tables with data in your database (in the schema marked as 'modified'
-      in DB sync configuration) and want to create a GeoPackage based on that in your Mergin project:
+      in DB sync configuration) and want to create a GeoPackage based on that in your Mergin Maps project:
       ```
       python3 dbsync.py init-from-db
       ```
-      This will create 'base' schema in the database, create GeoPackage in the working dir and push it to Mergin.
-   
+      This will create 'base' schema in the database, create GeoPackage in the working dir and push it to Mergin Maps.
+
 Once initialized:
 
-- run `python3 dbsync.py status' to see if there are any changes on Mergin server or in the database
-- run `python3 dbsync.py pull` to fetch data from Mergin and apply them to the database
-- run `python3 dbsync.py push` to fetch data from the database and push to Mergin
+- run `python3 dbsync.py status' to see if there are any changes on Mergin Maps server or in the database
+- run `python3 dbsync.py pull` to fetch data from Mergin Maps and apply them to the database
+- run `python3 dbsync.py push` to fetch data from the database and push to Mergin Maps
 
 
 ### Creating a local database (Ubuntu 20.04)
@@ -112,7 +112,7 @@ Add a user `john` and create a database for the user:
 sudo -u postgres createuser john
 sudo -u postgres psql -c "CREATE DATABASE john OWNER john"
 sudo -u postgres psql -d john -c "CREATE EXTENSION postgis;"
-``` 
+```
 
 ### Creating a working schema
 
@@ -162,7 +162,7 @@ even after logging out, we can use `tmux` utility. After starting SSH session, r
 `tmux` which will start new terminal session where you can start the script
 (`python3 dbsync_daemon.py`) and then with `Ctrl-B` followed by `d` leave the script
 running in a detached tmux session. Logging out will not affect the daemon. At some
-point later one can run `tmux attach` to bring the session back to the foreground.   
+point later one can run `tmux attach` to bring the session back to the foreground.
 
 
 ### Releasing new version

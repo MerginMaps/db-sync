@@ -1,6 +1,6 @@
 # Quick start guide
 
-In this quick start guide you will set up synchronization between your PostGIS database and new Mergin project.
+In this quick start guide you will set up synchronization between your PostGIS database and new Mergin Maps project.
 
 ## Prerequisites
 
@@ -14,8 +14,8 @@ You can simply use this [file](../sample_data/test_data.sql) and run:
 ```
 $ psql -h localhost -d db-sync -U postgres -f sample_data/test_data.sql
 ```
-## 2. Create an empty mergin project
-Go to [Mergin](https://public.cloudmergin.com/) website and create a new blank project.
+## 2. Create an empty Mergin Maps project
+Go to [Mergin Maps](https://app.merginmaps.com/) website and create a new blank project.
 
 ![new_project](images/new_proj.png)
 
@@ -39,15 +39,15 @@ $ sudo docker run --name mergin_db_sync -it \
   -e MERGIN_SYNC_FILE=sync_db.gpkg \
   lutraconsulting/mergin-db-sync:latest python3 dbsync_daemon.py --init-from-db
 ```
-and you should see a new geopackage file in your Mergin project. To be able to use the Geopackage as a survey layer:
+and you should see a new geopackage file in your Mergin Maps project. To be able to use the Geopackage as a survey layer:
 
 - Download the generated gpkg file
 - Open it in QGIS
 - Style it (if you wish)
 - Save the QGIS project on the same folder as the downloaded gpkg file
-- Upload the QGIS project to your Mergin project
+- Upload the QGIS project to your Mergin Maps project
 
-The QGIS and Geopackage files will be a valid Mergin project ready for surveying. Read more about QGIS project configuration on [Mergin](https://help.cloudmergin.com/) and [Input](https://help.inputapp.io/) documentations.
+The QGIS and Geopackage files will be a valid Mergin Maps project ready for surveying. Read more about QGIS project configuration on [Mergin Maps](https://merginmaps.com/docs/) and [Mergin Maps Input](https://help.inputapp.io/) documentations.
 
 ![new_project_3](images/new_proj3.png)
 
