@@ -39,7 +39,7 @@ class Config:
         self.project_working_dir = None
         self.geodiff_exe = None
 
-        self.mergin_url = 'https://app.merginmaps.com/'
+        self.mergin_url = 'https://app.merginmaps.com'
 
         self.mergin_username = None
         self.mergin_password = None
