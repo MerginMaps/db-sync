@@ -23,14 +23,14 @@ TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_
 @pytest.fixture(scope='function')
 def mc():
     assert SERVER_URL and API_USER and USER_PWD
-    #assert SERVER_URL and SERVER_URL.rstrip('/') != 'https://public.cloudmergin.com' and API_USER and USER_PWD
+    #assert SERVER_URL and SERVER_URL.rstrip('/') != 'https://app.merginmaps.com/' and API_USER and USER_PWD
     return MerginClient(SERVER_URL, login=API_USER, password=USER_PWD)
 
 
 def cleanup(mc, project, dirs):
     """ cleanup leftovers from previous test if needed such as remote project and local directories """
     try:
-        print("Deleting project on Mergin server: " + project)
+        print("Deleting project on Mergin Maps server: " + project)
         mc.delete_project(project)
     except ClientError as e:
         print("Deleting project error: " + str(e))
@@ -51,7 +51,7 @@ def cleanup_db(conn, schema_base, schema_main):
 def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
     """
     Initialize sync from given GeoPackage file:
-    - (re)create Mergin project with the file
+    - (re)create Mergin Maps project with the file
     - (re)create local project working directory and sync directory
     - configure DB sync and let it do the init (make copies to the database)
     """
@@ -67,7 +67,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
     cleanup(mc, full_project_name, [project_dir, sync_project_dir])
     cleanup_db(conn, db_schema_base, db_schema_main)
 
-    # prepare a new Mergin project
+    # prepare a new Mergin Maps project
     mc.create_project(project_name)
     mc.download_project(full_project_name, project_dir)
     shutil.copy(source_gpkg_path, os.path.join(project_dir, 'test_sync.gpkg'))
@@ -190,8 +190,8 @@ def test_init_from_gpkg(mc):
 
 def test_basic_pull(mc):
     """
-    Test initialization and one pull from Mergin to DB
-    1. create a Mergin project using py-client with a testing gpkg
+    Test initialization and one pull from Mergin Maps to DB
+    1. create a Mergin Maps project using py-client with a testing gpkg
     2. run init, check that everything is fine
     3. make change in gpkg (copy new version), check everything is fine
     """
@@ -213,7 +213,7 @@ def test_basic_pull(mc):
     shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
     mc.push_project(project_dir)
 
-    # pull the change from Mergin to DB
+    # pull the change from Mergin Maps to DB
     dbsync_pull(mc)
 
     # check that a feature has been inserted
@@ -228,7 +228,7 @@ def test_basic_pull(mc):
 
 
 def test_basic_push(mc):
-    """ Initialize a project and test push of a new row from PostgreSQL to Mergin """
+    """ Initialize a project and test push of a new row from PostgreSQL to Mergin Maps"""
 
     project_name = 'test_sync_push'
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
@@ -269,9 +269,9 @@ def test_basic_push(mc):
 
 
 def test_basic_both(mc):
-    """ Initializes a sync project and does both a change in Mergin and in the database,
+    """ Initializes a sync project and does both a change in Mergin Maps and in the database,
     and lets DB sync handle it: changes in PostgreSQL need to be rebased on top of
-    changes in Mergin server.
+    changes in Mergin Maps server.
     """
 
     project_name = 'test_sync_both'
@@ -298,7 +298,7 @@ def test_basic_both(mc):
     cur.execute(f"SELECT count(*) from {project_name}_main.simple")
     assert cur.fetchone()[0] == 4
 
-    # first pull changes from Mergin to DB (+rebase changes in DB) and then push the changes from DB to Mergin
+    # first pull changes from Mergin Maps to DB (+rebase changes in DB) and then push the changes from DB to Mergin Maps
     dbsync_pull(mc)
     db_proj_info = _get_db_project_comment(conn, 'test_sync_both_base')
     assert db_proj_info["version"] == 'v2'
