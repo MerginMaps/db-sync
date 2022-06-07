@@ -61,16 +61,16 @@ DB sync with Docker above.
 
 2. Install PostgreSQL client (for Python and for C): `sudo apt install libpq-dev python3-psycopg2`
 
-3. Compile [geodiff](https://github.com/lutraconsulting/geodiff) from master branch with PostgreSQL support:
+3. Compile [geodiff](https://github.com/MerginMaps/geodiff) from master branch with PostgreSQL support:
    ```
-   git clone https://github.com/lutraconsulting/geodiff.git
+   git clone https://github.com/MerginMaps/geodiff.git
    cd geodiff
    mkdir build && cd build
    cmake -DWITH_POSTGRESQL=TRUE ../geodiff
    make
    ```
 
-4. download this git repository: `git clone https://github.com/lutraconsulting/mergin-db-sync.git`
+4. download this git repository: `git clone https://github.com/MerginMaps/mergin-db-sync.git`
 
 ### How to use
 
