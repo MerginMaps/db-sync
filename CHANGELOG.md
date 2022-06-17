@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.7
+
+- Updated public server URL (#63)
+- Updated to mergin-client 0.7.3
+
 ## 1.0.6
 
 - Updated to geodiff 1.0.4 and mergin-client 0.6.5 (#50)
