@@ -9,7 +9,7 @@ import psycopg2
 
 from mergin import MerginClient, ClientError
 from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError, _geodiff_make_copy, \
-    _get_db_project_comment
+    _get_db_project_comment, config
 
 GEODIFF_EXE = os.environ.get('TEST_GEODIFF_EXE')
 DB_CONNINFO = os.environ.get('TEST_DB_CONNINFO')
@@ -74,17 +74,15 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
     mc.push_project(project_dir)
 
     # prepare dbsync config
-    config.geodiff_exe = GEODIFF_EXE
-    config.mergin_username = API_USER
-    config.mergin_password = USER_PWD
-    config.mergin_url = SERVER_URL
-    config.db_conn_info = DB_CONNINFO
-    config.project_working_dir = sync_project_dir
-    config.mergin_project_name = full_project_name
-    config.mergin_sync_file = 'test_sync.gpkg'
-    config.db_driver = 'postgres'
-    config.db_schema_modified = db_schema_main
-    config.db_schema_base = db_schema_base
+    # patch config to fit testing purposes
+    config.update({
+        'GEODIFF_EXE': GEODIFF_EXE,
+        'WORKING_DIR': sync_project_dir,
+        'MERGIN__USERNAME': API_USER,
+        'MERGIN__PASSWORD': USER_PWD,
+        'MERGIN__URL': SERVER_URL,
+        'SCHEMAS': [{"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg"}],
+    })
 
     dbsync_init(mc, from_gpkg=True)
 
@@ -108,7 +106,7 @@ def test_init_from_gpkg(mc):
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
     db_proj_info = _get_db_project_comment(conn, db_schema_base)
-    assert db_proj_info["name"] == config.mergin_project_name
+    assert db_proj_info["name"] == config.schemas[0].mergin_project
     assert db_proj_info["version"] == 'v1'
 
     # rename base schema to mimic some mismatch
@@ -125,7 +123,7 @@ def test_init_from_gpkg(mc):
     shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
     mc.push_project(project_dir)
     #  remove local copy of project (to mimic loss at docker restart)
-    shutil.rmtree(config.project_working_dir)
+    shutil.rmtree(config.working_dir)
     dbsync_init(mc, from_gpkg=True)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
@@ -133,8 +131,8 @@ def test_init_from_gpkg(mc):
     assert db_proj_info["version"] == 'v1'
 
     # let's remove local working dir and download different version from server to mimic versions mismatch
-    shutil.rmtree(config.project_working_dir)
-    mc.download_project(config.mergin_project_name, config.project_working_dir, 'v2')
+    shutil.rmtree(config.working_dir)
+    mc.download_project(config.schemas[0].mergin_project, config.working_dir, 'v2')
     # run init again, it should handle local working dir properly (e.g. download correct version) and pass but not sync
     dbsync_init(mc, from_gpkg=True)
     db_proj_info = _get_db_project_comment(conn, db_schema_base)
@@ -182,7 +180,7 @@ def test_init_from_gpkg(mc):
     assert "The db schemas already exist but 'base' schema is not synchronized with source GPKG" in str(err.value)
 
     # make local changes to src file to introduce local changes
-    shutil.copy(os.path.join(TEST_DATA_DIR, 'base.gpkg'), os.path.join(config.project_working_dir, config.mergin_sync_file))
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'base.gpkg'), os.path.join(config.working_dir, project_name, config.schemas[0].sync_file))
     with pytest.raises(DbSyncError) as err:
         dbsync_init(mc, from_gpkg=True)
     assert "There are pending changes in the local directory - that should never happen" in str(err.value)
