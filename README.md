@@ -8,6 +8,8 @@ That means you can:
 - insert / update / delete features in a GeoPackage in Mergin Maps project - and the changes will get
   automatically pushed to the PostGIS database
 
+**IMPORTANT**: structure of the config file was changed in the latest version. Therefore old .ini config files should be migrated and enviromnent values should be updated.
+
 ### How does it work
 
 - a single GeoPackage file in a Mergin Maps project is treated as an equivalent of a database schema - both can contain
@@ -30,13 +32,10 @@ The easiest way to run DB sync is with Docker. To run the container, use a comma
 
 ```
 sudo docker run -it \
-  -e DB_CONN_INFO="host=myhost.com dbname=mergin_dbsync user=postgres password=top_secret" \
-  -e DB_SCHEMA_MODIFIED=sync_main \
-  -e DB_SCHEMA_BASE=sync_base \
-  -e MERGIN_USERNAME=john \
-  -e MERGIN_PASSWORD=myStrongPassword \
-  -e MERGIN_PROJECT_NAME=john/my_project \
-  -e MERGIN_SYNC_FILE=sync_db.gpkg \
+  -e MERGIN__USERNAME=john \
+  -e MERGIN__USERNAME=john \
+  -e MERGIN__PASSWORD=myStrongPassword \
+  -e SCHEMAS="[{driver='postgres', conn_info='host=myhost.com dbname=mergin_dbsync user=postgres password=top_secret', modified='sync_main', base='sync_base', mergin_project='john/my_project', sync_file='sync_db.gpkg'}]" \
   lutraconsulting/mergin-db-sync:latest \
   python3 dbsync_daemon.py --init-from-gpkg
 ```
@@ -48,6 +47,8 @@ Mergin Maps service and your PostgreSQL for any new changes.
 
 Please make sure the PostgreSQL user in the database connection info has sufficient permissions
 to create schemas and tables.
+
+**Please note double underscore `__` is used to separate [config](config.yaml.default) group and item.**
 
 ### Installation
 
@@ -61,7 +62,9 @@ DB sync with Docker above.
 
 2. Install PostgreSQL client (for Python and for C): `sudo apt install libpq-dev python3-psycopg2`
 
-3. Compile [geodiff](https://github.com/MerginMaps/geodiff) from master branch with PostgreSQL support:
+3. Install Dynaconf library: `sudo apt install python3-dynaconf`
+
+4. Compile [geodiff](https://github.com/MerginMaps/geodiff) from master branch with PostgreSQL support:
    ```
    git clone https://github.com/MerginMaps/geodiff.git
    cd geodiff
@@ -76,7 +79,7 @@ DB sync with Docker above.
 
 Initialization:
 
-1. set up configuration in config.ini  (see config.ini.default for a sample)
+1. set up configuration in config.yaml  (see config.yaml.default for a sample)
 2. run dbsync initialization. There are two options:
 
    A. Init from Mergin Maps project: if you have an existing Mergin Maps project with a GeoPackage
@@ -132,7 +135,7 @@ CREATE TABLE sync_data.points (
 
 To run automatic tests:
 
-    cd mergin
+    cd mergin-db-sync
     export TEST_GEODIFF_EXE=<geodiff>           # path to geodiff executable
     export TEST_DB_CONNINFO=<conninfo>          # connection info for DB
     export TEST_MERGIN_URL=<url>                # testing server

@@ -4,26 +4,24 @@
 # - pull
 # - push
 
-import configparser
 import datetime
 import sys
 import time
 
 import dbsync
 from version import __version__
+from config import config, validate_config, ConfigError
 
 
 def main():
-
     print(f"== starting mergin-db-sync daemon == version {__version__} ==")
 
-    filename = 'config.ini'
-    dbsync.load_config(filename)
-
-    # load daemon-specific bits
-    cfg = configparser.ConfigParser()
-    cfg.read(filename)
-    sleep_time = int(cfg['daemon']['sleep_time'])
+    sleep_time = config.as_int("daemon.sleep_time")
+    try:
+        validate_config(config)
+    except ConfigError as e:
+        print("Error: " + str(e))
+        return
 
     print("Logging in to Mergin...")
     mc = dbsync.create_mergin_client()

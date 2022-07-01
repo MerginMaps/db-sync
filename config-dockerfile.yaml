@@ -1,0 +1,8 @@
+working_dir: /tmp/dbsync
+geodiff_exe: /geodiff/build/geodiff
+
+mergin:
+  url: https://app.merginmaps.com
+
+daemon:
+  sleep_time: 10

@@ -1,0 +1,18 @@
+working_dir: /tmp/dbsync
+geodiff_exe: geodiff
+
+mergin:
+  url: https://app.merginmaps.com
+  username: john
+  password: mysecret
+
+schemas:
+   - driver: postgres
+     conn_info:
+     modified: mergin_main
+     base: mergin_base
+     mergin_project: john/myproject
+     sync_file: sync.gpkg
+
+daemon:
+  sleep_time: 10
