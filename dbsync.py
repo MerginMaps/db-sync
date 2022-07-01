@@ -6,7 +6,6 @@ Copyright (C) 2020 Lutra Consulting
 License: MIT
 """
 
-import configparser
 import getpass
 import json
 import os
@@ -18,10 +17,11 @@ import tempfile
 import random
 
 import psycopg2
+from psycopg2 import sql
 
 from mergin import MerginClient, MerginProject, LoginError, ClientError
 from version import __version__
-from psycopg2 import sql
+from config import config, validate_config, ConfigError
 
 # set high logging level for geodiff (used by geodiff executable)
 # so we get as much information as possible
@@ -30,81 +30,6 @@ os.environ["GEODIFF_LOGGER_LEVEL"] = '4'   # 0 = nothing, 1 = errors, 2 = warnin
 
 class DbSyncError(Exception):
     pass
-
-
-class Config:
-    """ Contains configuration of the sync """
-
-    def __init__(self):
-        self.project_working_dir = None
-        self.geodiff_exe = None
-
-        self.mergin_url = 'https://app.merginmaps.com'
-
-        self.mergin_username = None
-        self.mergin_password = None
-        self.mergin_project_name = None
-        self.mergin_sync_file = None
-
-        self.db_driver = None
-        self.db_conn_info = None
-        self.db_schema_modified = None
-        self.db_schema_base = None
-
-        if 'MERGIN_URL' in os.environ:
-            self.mergin_url = os.environ['MERGIN_URL']
-        if 'MERGIN_USERNAME' in os.environ:
-            self.mergin_username = os.environ['MERGIN_USERNAME']
-        if 'MERGIN_PASSWORD' in os.environ:
-            self.mergin_password = os.environ['MERGIN_PASSWORD']
-        if 'MERGIN_PROJECT_NAME' in os.environ:
-            self.mergin_project_name = os.environ['MERGIN_PROJECT_NAME']
-        if 'MERGIN_SYNC_FILE' in os.environ:
-            self.mergin_sync_file = os.environ['MERGIN_SYNC_FILE']
-
-        if 'DB_DRIVER' in os.environ:
-            self.db_driver = os.environ['DB_DRIVER']
-        if 'DB_CONN_INFO' in os.environ:
-            self.db_conn_info = os.environ['DB_CONN_INFO']
-        if 'DB_SCHEMA_MODIFIED' in os.environ:
-            self.db_schema_modified = os.environ['DB_SCHEMA_MODIFIED']
-        if 'DB_SCHEMA_BASE' in os.environ:
-            self.db_schema_base = os.environ['DB_SCHEMA_BASE']
-
-    def load(self, filename):
-        cfg = configparser.ConfigParser()
-        cfg.read(filename)
-
-        self.project_working_dir = cfg['general']['working_dir']
-        self.geodiff_exe = cfg['general']['geodiff_exe']
-
-        if 'mergin' in cfg:
-            cfg_mergin = cfg['mergin']
-            if 'url' in cfg_mergin:
-                self.mergin_url = cfg_mergin['url']
-            if 'username' in cfg_mergin:
-                self.mergin_username = cfg_mergin['username']
-            if 'password' in cfg_mergin:
-                # password can be optionally stored in config.ini, but it is not recommended
-                self.mergin_password = cfg_mergin['password']
-            if 'project_name' in cfg_mergin:
-                self.mergin_project_name = cfg_mergin['project_name']
-            if 'sync_file' in cfg_mergin:
-                self.mergin_sync_file = cfg_mergin['sync_file']
-
-        if 'db' in cfg:
-            cfg_db = cfg['db']
-            if 'driver' in cfg_db:
-                self.db_driver = cfg_db['driver']
-            if 'conn_info' in cfg_db:
-                self.db_conn_info = cfg_db['conn_info']
-            if 'modified' in cfg_db:
-                self.db_schema_modified = cfg_db['modified']   # where local editing happens
-            if 'base' in cfg_db:
-                self.db_schema_base = cfg_db['base']           # where only this script does changes
-
-
-config = Config()
 
 
 def _check_config():
@@ -689,23 +614,20 @@ def show_usage():
     print("    dbsync pull        = will pull changes from Mergin Maps to DB")
 
 
-def load_config(config_filename):
-    if not os.path.exists(config_filename):
-        raise DbSyncError("The configuration file does not exist: " + config_filename)
-    config.load(config_filename)
-    _check_config()
-
-
 def main():
     if len(sys.argv) < 2:
         show_usage()
         return
 
-    config_filename = 'config.ini'
     print(f"== Starting Mergin Maps DB Sync version {__version__} ==")
 
     try:
-        load_config(config_filename)
+        validate_config(config)
+    except ConfigError as e:
+        print("Error: " + str(e))
+        return
+
+    try:
         print("Logging in to Mergin Maps...")
         mc = create_mergin_client()
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## ?
+
+- Changed config file format from INI to YAML
+
 ## 1.0.7
 
 - Updated public server URL (#63)
