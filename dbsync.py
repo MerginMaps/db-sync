@@ -208,7 +208,9 @@ def dbsync_pull(mc):
     for sch in config.schemas:
         schema_config = [sch.driver, sch.conn_info, sch.modified, sch.base, sch.mergin_project, sch.sync_file]
         if not all(schema_config):
-            raise DbSyncError(f"Configuration of the schema is not complete.")
+            raise DbSyncError(f"Configuration for the project '{sch.mergin_project}' is not complete.")
+
+        print(f"Processing Mergin Maps project '{sch.mergin_project}'")
 
         work_dir = os.path.join(config.working_dir, sch.mergin_project.split("/")[1])
         gpkg_full_path = os.path.join(work_dir, sch.sync_file)
@@ -296,7 +298,9 @@ def dbsync_status(mc):
     for sch in config.schemas:
         schema_config = [sch.driver, sch.conn_info, sch.modified, sch.base, sch.mergin_project, sch.sync_file]
         if not all(schema_config):
-            raise DbSyncError(f"Configuration of the schema is not complete.")
+            raise DbSyncError(f"Configuration for the project '{sch.mergin_project}' is not complete.")
+
+        print(f"Processing Mergin Maps project '{sch.mergin_project}'")
 
         work_dir = os.path.join(config.working_dir, sch.mergin_project.split("/")[1])
         gpkg_full_path = os.path.join(work_dir, sch.sync_file)
@@ -364,7 +368,9 @@ def dbsync_push(mc):
     for sch in config.schemas:
         schema_config = [sch.driver, sch.conn_info, sch.modified, sch.base, sch.mergin_project, sch.sync_file]
         if not all(schema_config):
-            raise DbSyncError(f"Configuration of the schema is not complete.")
+            raise DbSyncError(f"Configuration for the project '{sch.mergin_project}' is not complete.")
+
+        print(f"Processing Mergin Maps project '{sch.mergin_project}'")
 
         tmp_dir = tempfile.gettempdir()
         tmp_changeset_file = os.path.join(tmp_dir, f'{sch.mergin_project.split("/")[1]}-dbsync-push-base2our')
@@ -444,10 +450,11 @@ def dbsync_init(mc, from_gpkg=True):
     for sch in config.schemas:
         schema_config = [sch.driver, sch.conn_info, sch.modified, sch.base, sch.mergin_project, sch.sync_file]
         if not all(schema_config):
-            raise DbSyncError(f"Configuration of the schema is not complete.")
+            raise DbSyncError(f"Configuration for the project '{sch.mergin_project}' is not complete.")
 
         # let's start with various environment checks to make sure
         # the environment is set up correctly before doing any work
+        print(f"Processing Mergin Maps project '{sch.mergin_project}'")
         print("Connecting to the database...")
         try:
             conn = psycopg2.connect(sch.conn_info)
