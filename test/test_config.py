@@ -23,7 +23,7 @@ def _reset_config():
         'MERGIN__URL': SERVER_URL,
         'WORKING_DIR': "/tmp/working_project",
         'GEODIFF_EXE': "geodiff",
-        'SCHEMAS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg"}]
+        'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg"}]
     })
 
 
@@ -47,22 +47,22 @@ def test_config():
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(ConfigError, match="Config error: Schemas list can not be empty"):
-        config.update({'SCHEMAS': []})
+    with pytest.raises(ConfigError, match="Config error: Connections list can not be empty"):
+        config.update({'CONNECTIONS': []})
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(ConfigError, match="Config error: Incorrect schema settings"):
-        config.update({'SCHEMAS': [{"modified": "mergin_main"}]})
+    with pytest.raises(ConfigError, match="Config error: Incorrect connection settings"):
+        config.update({'CONNECTIONS': [{"modified": "mergin_main"}]})
         validate_config(config)
 
     _reset_config()
     with pytest.raises(ConfigError, match="Config error: Only 'postgres' driver is currently supported."):
-        config.update({'SCHEMAS': [{"driver": "oracle", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg"}]})
+        config.update({'CONNECTIONS': [{"driver": "oracle", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg"}]})
         validate_config(config)
 
     _reset_config()
     with pytest.raises(ConfigError, match="Config error: Name of the Mergin Maps project should be provided in the namespace/name format."):
-        config.update({'SCHEMAS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "dbsync", "sync_file": "sync.gpkg"}]})
+        config.update({'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "dbsync", "sync_file": "sync.gpkg"}]})
         validate_config(config)
 

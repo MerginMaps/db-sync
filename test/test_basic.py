@@ -81,7 +81,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
         'MERGIN__USERNAME': API_USER,
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
-        'SCHEMAS': [{"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg"}],
+        'CONNECTIONS': [{"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg"}],
     })
 
     dbsync_init(mc, from_gpkg=True)
@@ -106,7 +106,7 @@ def test_init_from_gpkg(mc):
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
     db_proj_info = _get_db_project_comment(conn, db_schema_base)
-    assert db_proj_info["name"] == config.schemas[0].mergin_project
+    assert db_proj_info["name"] == config.connections[0].mergin_project
     assert db_proj_info["version"] == 'v1'
 
     # rename base schema to mimic some mismatch
@@ -132,7 +132,7 @@ def test_init_from_gpkg(mc):
 
     # let's remove local working dir and download different version from server to mimic versions mismatch
     shutil.rmtree(config.working_dir)
-    mc.download_project(config.schemas[0].mergin_project, config.working_dir, 'v2')
+    mc.download_project(config.connections[0].mergin_project, config.working_dir, 'v2')
     # run init again, it should handle local working dir properly (e.g. download correct version) and pass but not sync
     dbsync_init(mc, from_gpkg=True)
     db_proj_info = _get_db_project_comment(conn, db_schema_base)
@@ -180,7 +180,7 @@ def test_init_from_gpkg(mc):
     assert "The db schemas already exist but 'base' schema is not synchronized with source GPKG" in str(err.value)
 
     # make local changes to src file to introduce local changes
-    shutil.copy(os.path.join(TEST_DATA_DIR, 'base.gpkg'), os.path.join(config.working_dir, project_name, config.schemas[0].sync_file))
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'base.gpkg'), os.path.join(config.working_dir, project_name, config.connections[0].sync_file))
     with pytest.raises(DbSyncError) as err:
         dbsync_init(mc, from_gpkg=True)
     assert "There are pending changes in the local directory - that should never happen" in str(err.value)

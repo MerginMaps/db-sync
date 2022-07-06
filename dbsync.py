@@ -202,14 +202,14 @@ def create_mergin_client():
         raise DbSyncError("Mergin Maps client error: " + str(e))
 
 
-def pull(schema, mc):
+def pull(conn_cfg, mc):
     """ Downloads any changes from Mergin Maps and applies them to the database """
 
-    print(f"Processing Mergin Maps project '{schema.mergin_project}'")
+    print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
 
-    project_name = schema.mergin_project.split("/")[1]
+    project_name = conn_cfg.mergin_project.split("/")[1]
     work_dir = os.path.join(config.working_dir, project_name)
-    gpkg_full_path = os.path.join(work_dir, schema.sync_file)
+    gpkg_full_path = os.path.join(work_dir, conn_cfg.sync_file)
 
     _check_has_working_dir(work_dir)
     _check_has_sync_file(gpkg_full_path)
@@ -235,7 +235,7 @@ def pull(schema, mc):
         print("No changes on Mergin Maps.")
         return
 
-    gpkg_basefile = os.path.join(work_dir, '.mergin', schema.sync_file)
+    gpkg_basefile = os.path.join(work_dir, '.mergin', conn_cfg.sync_file)
     gpkg_basefile_old = gpkg_basefile + "-old"
 
     # make a copy of the basefile in the current version (base) - because after pull it will be set to "their"
@@ -246,7 +246,7 @@ def pull(schema, mc):
     tmp_base2their = os.path.join(tmp_dir, f'{project_name}-dbsync-pull-base2their')
 
     # find out our local changes in the database (base2our)
-    _geodiff_create_changeset(schema.driver, schema.conn_info, schema.base, schema.modified, tmp_base2our)
+    _geodiff_create_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, conn_cfg.modified, tmp_base2our)
 
     needs_rebase = False
     if os.path.getsize(tmp_base2our) != 0:
@@ -271,30 +271,30 @@ def pull(schema, mc):
 
     if not needs_rebase:
         print("Applying new version [no rebase]")
-        _geodiff_apply_changeset(schema.driver, schema.conn_info, schema.base, tmp_base2their)
-        _geodiff_apply_changeset(schema.driver, schema.conn_info, schema.modified, tmp_base2their)
+        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their)
+        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified, tmp_base2their)
     else:
         print("Applying new version [WITH rebase]")
         tmp_conflicts = os.path.join(tmp_dir, f'{project_name}-dbsync-pull-conflicts')
-        _geodiff_rebase(schema.driver, schema.conn_info, schema.base,
-                        schema.modified, tmp_base2their, tmp_conflicts)
-        _geodiff_apply_changeset(schema.driver, schema.conn_info, schema.base, tmp_base2their)
+        _geodiff_rebase(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base,
+                        conn_cfg.modified, tmp_base2their, tmp_conflicts)
+        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their)
 
     os.remove(gpkg_basefile_old)
-    conn = psycopg2.connect(schema.conn_info)
+    conn = psycopg2.connect(conn_cfg.conn_info)
     version = _get_project_version(work_dir)
-    _set_db_project_comment(conn, schema.base, schema.mergin_project, version)
+    _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
 
 
-def status(schema, mc):
+def status(conn_cfg, mc):
     """ Figure out if there are any pending changes in the database or in Mergin Maps"""
 
-    print(f"Processing Mergin Maps project '{schema.mergin_project}'")
+    print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
 
-    project_name = schema.mergin_project.split("/")[1]
+    project_name = conn_cfg.mergin_project.split("/")[1]
 
     work_dir = os.path.join(config.working_dir, project_name)
-    gpkg_full_path = os.path.join(work_dir, schema.sync_file)
+    gpkg_full_path = os.path.join(work_dir, conn_cfg.sync_file)
 
     _check_has_working_dir(work_dir)
     _check_has_sync_file(gpkg_full_path)
@@ -330,19 +330,19 @@ def status(schema, mc):
         print("No pending changes on server.")
 
     print("")
-    conn = psycopg2.connect(schema.conn_info)
+    conn = psycopg2.connect(conn_cfg.conn_info)
 
-    if not _check_schema_exists(conn, schema.base):
-        raise DbSyncError("The base schema does not exist: " + schema.base)
-    if not _check_schema_exists(conn, schema.modified):
-        raise DbSyncError("The 'modified' schema does not exist: " + schema.modified)
+    if not _check_schema_exists(conn, conn_cfg.base):
+        raise DbSyncError("The base schema does not exist: " + conn_cfg.base)
+    if not _check_schema_exists(conn, conn_cfg.modified):
+        raise DbSyncError("The 'modified' schema does not exist: " + conn_cfg.modified)
 
     # get changes in the DB
     tmp_dir = tempfile.gettempdir()
     tmp_changeset_file = os.path.join(tmp_dir, f'{project_name}-dbsync-status-base2our')
     if os.path.exists(tmp_changeset_file):
         os.remove(tmp_changeset_file)
-    _geodiff_create_changeset(schema.driver, schema.conn_info, schema.base, schema.modified, tmp_changeset_file)
+    _geodiff_create_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, conn_cfg.modified, tmp_changeset_file)
 
     if os.path.getsize(tmp_changeset_file) == 0:
         print("No changes in the database.")
@@ -353,12 +353,12 @@ def status(schema, mc):
         _print_changes_summary(summary)
 
 
-def push(schema, mc):
+def push(conn_cfg, mc):
     """ Take changes in the 'modified' schema in the database and push them to Mergin Maps"""
 
-    print(f"Processing Mergin Maps project '{schema.mergin_project}'")
+    print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
 
-    project_name = schema.mergin_project.split("/")[1]
+    project_name = conn_cfg.mergin_project.split("/")[1]
 
     tmp_dir = tempfile.gettempdir()
     tmp_changeset_file = os.path.join(tmp_dir, f'{project_name}-dbsync-push-base2our')
@@ -366,7 +366,7 @@ def push(schema, mc):
         os.remove(tmp_changeset_file)
 
     work_dir = os.path.join(config.working_dir, project_name)
-    gpkg_full_path = os.path.join(work_dir, schema.sync_file)
+    gpkg_full_path = os.path.join(work_dir, conn_cfg.sync_file)
     _check_has_working_dir(work_dir)
     _check_has_sync_file(gpkg_full_path)
 
@@ -392,15 +392,15 @@ def push(schema, mc):
     if server_version != local_version:
         raise DbSyncError("There are pending changes on server - need to pull them first.")
 
-    conn = psycopg2.connect(schema.conn_info)
+    conn = psycopg2.connect(conn_cfg.conn_info)
 
-    if not _check_schema_exists(conn, schema.base):
-        raise DbSyncError("The base schema does not exist: " + schema.base)
-    if not _check_schema_exists(conn, schema.modified):
-        raise DbSyncError("The 'modified' schema does not exist: " + schema.modified)
+    if not _check_schema_exists(conn, conn_cfg.base):
+        raise DbSyncError("The base schema does not exist: " + conn_cfg.base)
+    if not _check_schema_exists(conn, conn_cfg.modified):
+        raise DbSyncError("The 'modified' schema does not exist: " + conn_cfg.modified)
 
     # get changes in the DB
-    _geodiff_create_changeset(schema.driver, schema.conn_info, schema.base, schema.modified, tmp_changeset_file)
+    _geodiff_create_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, conn_cfg.modified, tmp_changeset_file)
 
     if os.path.getsize(tmp_changeset_file) == 0:
         print("No changes in the database.")
@@ -426,38 +426,38 @@ def push(schema, mc):
 
     # update base schema in the DB
     print("Updating DB base schema...")
-    _geodiff_apply_changeset(schema.driver, schema.conn_info, schema.base, tmp_changeset_file)
-    _set_db_project_comment(conn, schema.base, schema.mergin_project, version)
+    _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_changeset_file)
+    _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
 
 
-def init(schema, mc, from_gpkg=True):
+def init(conn_cfg, mc, from_gpkg=True):
     """ Initialize the dbsync so that it is possible to do two-way sync between Mergin Maps and a database """
 
-    print(f"Processing Mergin Maps project '{schema.mergin_project}'")
-    project_name = schema.mergin_project.split("/")[1]
+    print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
+    project_name = conn_cfg.mergin_project.split("/")[1]
 
     # let's start with various environment checks to make sure
     # the environment is set up correctly before doing any work
     print("Connecting to the database...")
     try:
-        conn = psycopg2.connect(schema.conn_info)
+        conn = psycopg2.connect(conn_cfg.conn_info)
     except psycopg2.Error as e:
         raise DbSyncError("Unable to connect to the database: " + str(e))
 
-    base_schema_exists = _check_schema_exists(conn, schema.base)
-    modified_schema_exists = _check_schema_exists(conn, schema.modified)
+    base_schema_exists = _check_schema_exists(conn, conn_cfg.base)
+    modified_schema_exists = _check_schema_exists(conn, conn_cfg.modified)
 
     work_dir = os.path.join(config.working_dir, project_name)
-    gpkg_full_path = os.path.join(work_dir, schema.sync_file)
+    gpkg_full_path = os.path.join(work_dir, conn_cfg.sync_file)
     if modified_schema_exists and base_schema_exists:
         print("Modified and base schemas already exist")
         # this is not a first run of db-sync init
-        db_proj_info = _get_db_project_comment(conn, schema.base)
+        db_proj_info = _get_db_project_comment(conn, conn_cfg.base)
         if not db_proj_info:
             raise DbSyncError("Base schema exists but missing which project it belongs to")
         if "error" in db_proj_info:
-            changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, schema.driver,
-                                                  schema.conn_info, schema.base,
+            changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
+                                                  conn_cfg.conn_info, conn_cfg.base,
                                                   summary_only=False)
             changes = json.dumps(changes_gpkg_base, indent=2)
             print(f"Changeset from failed init:\n {changes}")
@@ -465,22 +465,22 @@ def init(schema, mc, from_gpkg=True):
 
         # make sure working directory contains the same version of project
         if not os.path.exists(work_dir):
-            print(f"Downloading version {db_proj_info['version']} of Mergin Maps project {schema.mergin_project} "
+            print(f"Downloading version {db_proj_info['version']} of Mergin Maps project {conn_cfg.mergin_project} "
                   f"to {work_dir}")
-            mc.download_project(schema.mergin_project, work_dir, db_proj_info["version"])
+            mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
         else:
             local_version = _get_project_version(work_dir)
             print(f"Working directory {work_dir} already exists, with project version {local_version}")
             if local_version != db_proj_info["version"]:
                 print(f"Removing local working directory {work_dir}")
                 shutil.rmtree(work_dir)
-                print(f"Downloading version {db_proj_info['version']} of Mergin Maps project {schema.mergin_project} "
+                print(f"Downloading version {db_proj_info['version']} of Mergin Maps project {conn_cfg.mergin_project} "
                       f"to {work_dir}")
-                mc.download_project(schema.mergin_project, work_dir, db_proj_info["version"])
+                mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
     else:
         if not os.path.exists(work_dir):
-            print("Downloading latest Mergin Maps project " + schema.mergin_project + " to " + work_dir)
-            mc.download_project(schema.mergin_project, work_dir)
+            print("Downloading latest Mergin Maps project " + conn_cfg.mergin_project + " to " + work_dir)
+            mc.download_project(conn_cfg.mergin_project, work_dir)
         else:
             local_version = _get_project_version(work_dir)
             print(f"Working directory {work_dir} already exists, with project version {local_version}")
@@ -502,10 +502,10 @@ def init(schema, mc, from_gpkg=True):
 
         if modified_schema_exists and base_schema_exists:
             # if db schema already exists make sure it is already synchronized with source gpkg or fail
-            summary_modified = _compare_datasets("sqlite", "", gpkg_full_path, schema.driver,
-                                                 schema.conn_info, schema.modified)
-            summary_base = _compare_datasets("sqlite", "", gpkg_full_path, schema.driver,
-                                             schema.conn_info, schema.base)
+            summary_modified = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
+                                                 conn_cfg.conn_info, conn_cfg.modified)
+            summary_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
+                                             conn_cfg.conn_info, conn_cfg.base)
             if len(summary_base):
                 # seems someone modified base schema manually - this should never happen!
                 print(f"Local project version at {local_version} and base schema at {db_proj_info['version']}")
@@ -519,26 +519,26 @@ def init(schema, mc, from_gpkg=True):
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
         elif modified_schema_exists:
-            raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {schema.base}")
+            raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {conn_cfg.base}")
         elif base_schema_exists:
-            raise DbSyncError(f"The base schema exists but the modified schema is missing: {schema.modified}")
+            raise DbSyncError(f"The base schema exists but the modified schema is missing: {conn_cfg.modified}")
 
         # initialize: we have an existing GeoPackage in our Mergin Maps project and we want to initialize database
         print("The base and modified schemas do not exist yet, going to initialize them ...")
         try:
             # COPY: gpkg -> modified
             _geodiff_make_copy("sqlite", "", gpkg_full_path,
-                               schema.driver, schema.conn_info, schema.modified)
+                               conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified)
 
             # COPY: modified -> base
-            _geodiff_make_copy(schema.driver, schema.conn_info, schema.modified,
-                               schema.driver, schema.conn_info, schema.base)
+            _geodiff_make_copy(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified,
+                               conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base)
 
             # sanity check to verify that right after initialization we do not have any changes
             # between the 'base' schema and the geopackage in Mergin Maps project, to make sure that
             # copying data back and forth will keep data intact
-            changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, schema.driver,
-                                                  schema.conn_info, schema.base,
+            changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
+                                                  conn_cfg.conn_info, conn_cfg.base,
                                                   summary_only=False)
             # mark project version into db schema
             if len(changes_gpkg_base):
@@ -548,20 +548,20 @@ def init(schema, mc, from_gpkg=True):
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
             # add comment to base schema before throwing exception
-            _set_db_project_comment(conn, schema.base, schema.mergin_project, local_version,
+            _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version,
                                     error='Initialization of db-sync failed due to a bug in geodiff')
             raise
 
-        _set_db_project_comment(conn, schema.base, schema.mergin_project, local_version)
+        _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version)
     else:
         if not modified_schema_exists:
-            raise DbSyncError("The 'modified' schema does not exist: " + schema.modified)
+            raise DbSyncError("The 'modified' schema does not exist: " + conn_cfg.modified)
 
         if os.path.exists(gpkg_full_path) and base_schema_exists:
             # make sure output gpkg is in sync with db or fail
-            summary_modified = _compare_datasets(schema.driver, schema.conn_info, schema.modified,
+            summary_modified = _compare_datasets(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified,
                                                 "sqlite", "", gpkg_full_path)
-            summary_base = _compare_datasets(schema.driver, schema.conn_info, schema.base,
+            summary_base = _compare_datasets(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base,
                                             "sqlite", "", gpkg_full_path)
             if len(summary_base):
                 print(f"Local project version at {_get_project_version(work_dir)} and base schema at {db_proj_info['version']}")
@@ -576,7 +576,7 @@ def init(schema, mc, from_gpkg=True):
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
         elif os.path.exists(gpkg_full_path):
-            raise DbSyncError(f"The output GPKG exists but the base schema is missing: {schema.base}")
+            raise DbSyncError(f"The output GPKG exists but the base schema is missing: {conn_cfg.base}")
         elif base_schema_exists:
             raise DbSyncError(f"The base schema exists but the output GPKG exists is missing: {gpkg_full_path}")
 
@@ -585,25 +585,25 @@ def init(schema, mc, from_gpkg=True):
         print("The base schema and the output GPKG do not exist yet, going to initialize them ...")
         try:
             # COPY: modified -> base
-            _geodiff_make_copy(schema.driver, schema.conn_info, schema.modified,
-                               schema.driver, schema.conn_info, schema.base)
+            _geodiff_make_copy(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified,
+                               conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base)
 
             # COPY: modified -> gpkg
-            _geodiff_make_copy(schema.driver, schema.conn_info, schema.modified,
+            _geodiff_make_copy(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified,
                                "sqlite", "", gpkg_full_path)
 
             # sanity check to verify that right after initialization we do not have any changes
             # between the 'base' schema and the geopackage in Mergin Maps project, to make sure that
             # copying data back and forth will keep data intact
-            changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, schema.driver,
-                                                  schema.conn_info, schema.base, summary_only=False)
+            changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
+                                                  conn_cfg.conn_info, conn_cfg.base, summary_only=False)
             if len(changes_gpkg_base):
                 changes = json.dumps(changes_gpkg_base, indent=2)
                 print(f"Changeset after internal copy (should be empty):\n {changes}")
                 raise DbSyncError('Initialization of db-sync failed due to a bug in geodiff.\n '
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
-            _set_db_project_comment(conn, schema.base, schema.mergin_project, local_version,
+            _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version,
                                     error='Initialization of db-sync failed due to a bug in geodiff')
             raise
 
@@ -612,33 +612,33 @@ def init(schema, mc, from_gpkg=True):
 
         # mark project version into db schema
         version = _get_project_version(work_dir)
-        _set_db_project_comment(conn, schema.base, schema.mergin_project, version)
+        _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
 
 
 def dbsync_init(mc, from_gpkg=True):
-    for schema in config.schemas:
-        init(schema, mc, from_gpkg=True)
+    for conn in config.connections:
+        init(conn, mc, from_gpkg=True)
 
     print("Init done!")
 
 
 def dbsync_pull(mc):
-    for schema in config.schemas:
-        pull(schema, mc)
+    for conn in config.connections:
+        pull(conn, mc)
 
     print("Pull done!")
 
 
 def dbsync_push(mc):
-    for schema in config.schemas:
-        push(schema, mc)
+    for conn in config.connections:
+        push(conn, mc)
 
     print("Push done!")
 
 
 def dbsync_status(mc):
-    for schema in config.schemas:
-        status(schema, mc)
+    for conn in config.connections:
+        status(conn, mc)
 
 
 def show_usage():

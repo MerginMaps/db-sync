@@ -6,7 +6,7 @@ mergin:
   username: john
   password: mysecret
 
-schemas:
+connections:
    - driver: postgres
      conn_info:
      modified: mergin_main
