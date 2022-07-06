@@ -30,15 +30,15 @@ def validate_config(config):
     if not (config.mergin.url and config.mergin.username and config.mergin.password):
         raise ConfigError("Config error: Incorrect mergin settings")
 
-    if not (config.schemas and len(config.schemas)):
-        raise ConfigError("Config error: Schemas list can not be empty")
+    if not (config.connections and len(config.connections)):
+        raise ConfigError("Config error: Connections list can not be empty")
 
-    for schema in config.schemas:
-        if not all(hasattr(schema, attr) for attr in ["driver", "conn_info", "modified", "base", "mergin_project", "sync_file"]):
-            raise ConfigError("Config error: Incorrect schema settings")
+    for conn in config.connections:
+        if not all(hasattr(conn, attr) for attr in ["driver", "conn_info", "modified", "base", "mergin_project", "sync_file"]):
+            raise ConfigError("Config error: Incorrect connection settings")
 
-        if schema.driver != "postgres":
+        if conn.driver != "postgres":
             raise ConfigError("Config error: Only 'postgres' driver is currently supported.")
 
-        if "/" not in schema.mergin_project:
+        if "/" not in conn.mergin_project:
             raise ConfigError("Config error: Name of the Mergin Maps project should be provided in the namespace/name format.")
