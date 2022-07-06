@@ -39,3 +39,6 @@ def validate_config(config):
 
         if schema.driver != "postgres":
             raise ConfigError("Config error: Only 'postgres' driver is currently supported.")
+
+        if "/" not in schema.mergin_project:
+            raise ConfigError("Config error: Name of the Mergin Maps project should be provided in the namespace/name format.")
