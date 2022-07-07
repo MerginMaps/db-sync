@@ -33,7 +33,6 @@ The easiest way to run DB sync is with Docker. To run the container, use a comma
 ```
 sudo docker run -it \
   -e MERGIN__USERNAME=john \
-  -e MERGIN__USERNAME=john \
   -e MERGIN__PASSWORD=myStrongPassword \
   -e CONNECTIONS="[{driver='postgres', conn_info='host=myhost.com dbname=mergin_dbsync user=postgres password=top_secret', modified='sync_main', base='sync_base', mergin_project='john/my_project', sync_file='sync_db.gpkg'}]" \
   lutraconsulting/mergin-db-sync:latest \
