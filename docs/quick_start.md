@@ -30,13 +30,9 @@ Download and run db-sync docker image:
 
 ```
 $ sudo docker run --name mergin_db_sync -it \
-  -e DB_CONN_INFO="host=myhost.com dbname=db-sync user=postgres password=top_secret" \
-  -e DB_SCHEMA_MODIFIED=sync_data \
-  -e DB_SCHEMA_BASE=sync_base \
-  -e MERGIN_USERNAME=john \
-  -e MERGIN_PASSWORD=myStrongPassword \
-  -e MERGIN_PROJECT_NAME=john/db-sync \
-  -e MERGIN_SYNC_FILE=sync_db.gpkg \
+  -e MERGIN__USERNAME=john \
+  -e MERGIN__PASSWORD=myStrongPassword \
+  -e CONNECTIONS="[{driver='postgres', conn_info='host=myhost.com dbname=db-sync user=postgres password=top_secret', modified='sync_data', base='sync_base', mergin_project='john/db-sync', sync_file='sync_db.gpkg'}]" \
   lutraconsulting/mergin-db-sync:latest python3 dbsync_daemon.py --init-from-db
 ```
 and you should see a new geopackage file in your Mergin Maps project. To be able to use the Geopackage as a survey layer:
