@@ -617,7 +617,7 @@ def init(conn_cfg, mc, from_gpkg=True):
 
 def dbsync_init(mc, from_gpkg=True):
     for conn in config.connections:
-        init(conn, mc, from_gpkg=True)
+        init(conn, mc, from_gpkg)
 
     print("Init done!")
 
