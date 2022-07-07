@@ -56,8 +56,8 @@ def _check_schema_exists(conn, schema_name):
 
 def _check_has_password():
     """ Checks whether we have password for Mergin Maps user - if not, we will ask for it """
-    if config.mergin_password is None:
-        config.mergin_password = getpass.getpass(prompt="Mergin Maps password for '{}': ".format(config.mergin_username))
+    if config.mergin.password is None:
+        config.mergin.password = getpass.getpass(prompt="Mergin Maps password for '{}': ".format(config.mergin.username))
 
 
 def _run_geodiff(cmd):
@@ -192,7 +192,7 @@ def create_mergin_client():
     """ Create instance of MerginClient"""
     _check_has_password()
     try:
-        return MerginClient(config.mergin_url, login=config.mergin_username, password=config.mergin_password, plugin_version=f"DB-sync/{__version__}")
+        return MerginClient(config.mergin.url, login=config.mergin.username, password=config.mergin.password, plugin_version=f"DB-sync/{__version__}")
     except LoginError as e:
         # this could be auth failure, but could be also server problem (e.g. worker crash)
         raise DbSyncError(f"Unable to log in to Mergin Maps: {str(e)} \n\n" +
