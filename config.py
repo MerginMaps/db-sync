@@ -42,3 +42,9 @@ def validate_config(config):
 
         if "/" not in conn.mergin_project:
             raise ConfigError("Config error: Name of the Mergin Maps project should be provided in the namespace/name format.")
+
+        if "skip_tables" in conn:
+            if not isinstance(conn.skip_tables, list):
+                raise ConfigError("Config error: Ignored tables parameter should be a list")
+            if len(config.connections):
+                raise ConfigError("Config error: Ignored tables list can not be empty")

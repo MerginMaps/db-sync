@@ -52,3 +52,41 @@ In order to stop syncing simply stop docker container.
 ---
 Note: If you run your db-sync docker on the same host as your database is, you need to set up correct [networking](https://docs.docker.com/network/).
 For instance, on linux for testing purpose you can use default bridge, e.g IP address `172.17.0.1`
+
+## 4. Excluding tables from sync
+
+Sometimes in the database there are tables that should not be synchronised to Mergin projects. It is possible to ignore
+these tables and not sync them. To do so add `skip_tables` setting to the corresponding `CONNECTIONS` entry in the config
+file
+
+```
+working_dir: /tmp/dbsync
+geodiff_exe: geodiff
+
+mergin:
+  url: https://app.merginmaps.com
+  username: john
+  password: mysecret
+
+connections:
+   - driver: postgres
+     conn_info:
+     modified: mergin_main
+     base: mergin_base
+     mergin_project: john/myproject
+     sync_file: sync.gpkg
+     skip_tables:
+      - table1
+      - table2
+      - ...
+      - tableN
+
+daemon:
+  sleep_time: 10
+```
+
+or as environment variable
+
+```
+CONNECTIONS="[{driver='postgres', conn_info='host=myhost.com dbname=db-sync user=postgres password=top_secret', modified='sync_data', base='sync_base', mergin_project='john/db-sync', sync_file='sync_db.gpkg', skip_tables=[table1,table2,...,tableN]}]"
+```
