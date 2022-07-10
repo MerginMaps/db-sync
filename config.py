@@ -46,5 +46,5 @@ def validate_config(config):
         if "skip_tables" in conn:
             if not isinstance(conn.skip_tables, list):
                 raise ConfigError("Config error: Ignored tables parameter should be a list")
-            if len(config.connections):
+            if len(config.connections) <= 0:
                 raise ConfigError("Config error: Ignored tables list can not be empty")
