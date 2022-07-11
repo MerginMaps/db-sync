@@ -17,8 +17,8 @@ RUN apt-get update && apt-get install -y \
 
 # Python Mergin client
 RUN python3 -m pip install --upgrade pip
-RUN pip3 install mergin-client==0.7.3
-RUN pip3 install dynaconf==3.1.7
+COPY requirements.txt ./
+RUN pip3 install -r requirements.txt
 
 # geodiff (version >= 1.0.0 is needed with PostgreSQL support - we have to compile it)
 RUN git clone --branch 1.0.0 https://github.com/lutraconsulting/geodiff.git
