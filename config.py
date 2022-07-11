@@ -48,3 +48,7 @@ def validate_config(config):
                 raise ConfigError("Config error: Ignored tables parameter should be a list")
             if len(config.connections) <= 0:
                 raise ConfigError("Config error: Ignored tables list can not be empty")
+
+
+def get_ignored_tables(connection):
+    return ";".join(connection.skip_tables) if "skip_tables" in connection else ""

@@ -21,7 +21,7 @@ from psycopg2 import sql
 
 from mergin import MerginClient, MerginProject, LoginError, ClientError
 from version import __version__
-from config import config, validate_config, ConfigError
+from config import config, validate_config, get_ignored_tables, ConfigError
 
 # set high logging level for geodiff (used by geodiff executable)
 # so we get as much information as possible
@@ -221,7 +221,7 @@ def pull(conn_cfg, mc):
     """ Downloads any changes from Mergin Maps and applies them to the database """
 
     print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
-    ignored_tables = ";".join(conn_cfg.skip_tables) if "skip_tables" in conn_cfg else ""
+    ignored_tables = config.get_ignored_tables(conn_cfg)
 
     project_name = conn_cfg.mergin_project.split("/")[1]
     work_dir = os.path.join(config.working_dir, project_name)
@@ -307,7 +307,7 @@ def status(conn_cfg, mc):
     """ Figure out if there are any pending changes in the database or in Mergin Maps"""
 
     print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
-    ignored_tables = ";".join(conn_cfg.skip_tables) if "skip_tables" in conn_cfg else ""
+    ignored_tables = config.get_ignored_tables(conn_cfg)
 
     project_name = conn_cfg.mergin_project.split("/")[1]
 
@@ -376,7 +376,7 @@ def push(conn_cfg, mc):
     """ Take changes in the 'modified' schema in the database and push them to Mergin Maps"""
 
     print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
-    ignored_tables = ";".join(conn_cfg.skip_tables) if "skip_tables" in conn_cfg else ""
+    ignored_tables = config.get_ignored_tables(conn_cfg)
 
     project_name = conn_cfg.mergin_project.split("/")[1]
 
@@ -455,7 +455,7 @@ def init(conn_cfg, mc, from_gpkg=True):
     """ Initialize the dbsync so that it is possible to do two-way sync between Mergin Maps and a database """
 
     print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
-    ignored_tables = ";".join(conn_cfg.skip_tables) if "skip_tables" in conn_cfg else ""
+    ignored_tables = config.get_ignored_tables(conn_cfg)
 
     project_name = conn_cfg.mergin_project.split("/")[1]
 
