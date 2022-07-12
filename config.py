@@ -51,4 +51,4 @@ def validate_config(config):
 
 
 def get_ignored_tables(connection):
-    return ";".join(connection.skip_tables) if "skip_tables" in connection else ""
+    return connection.skip_tables if "skip_tables" in connection else []

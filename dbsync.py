@@ -32,6 +32,10 @@ class DbSyncError(Exception):
     pass
 
 
+def _tables_list_to_string(tables):
+    return ";".join(tables)
+
+
 def _check_has_working_dir(work_path):
     if not os.path.exists(work_path):
         raise DbSyncError("The project working directory does not exist: " + work_path)
@@ -73,21 +77,21 @@ def _run_geodiff(cmd):
 
 def _geodiff_create_changeset(driver, conn_info, base, modified, changeset, ignored_tables):
     if ignored_tables:
-        _run_geodiff([config.geodiff_exe, "diff", "--driver", driver, conn_info, "--skip-tables", ignored_tables, base, modified, changeset])
+        _run_geodiff([config.geodiff_exe, "diff", "--driver", driver, conn_info, "--skip-tables", _tables_to_string(ignored_tables), base, modified, changeset])
     else:
         _run_geodiff([config.geodiff_exe, "diff", "--driver", driver, conn_info, base, modified, changeset])
 
 
 def _geodiff_apply_changeset(driver, conn_info, base, changeset, ignored_tables):
     if ignored_tables:
-        _run_geodiff([config.geodiff_exe, "apply", "--driver", driver, conn_info, "--skip-tables", ignored_tables, base, changeset])
+        _run_geodiff([config.geodiff_exe, "apply", "--driver", driver, conn_info, "--skip-tables", _tables_to_string(ignored_tables), base, changeset])
     else:
         _run_geodiff([config.geodiff_exe, "apply", "--driver", driver, conn_info, base, changeset])
 
 
 def _geodiff_rebase(driver, conn_info, base, our, base2their, conflicts, ignored_tables):
     if ignored_tables:
-        _run_geodiff([config.geodiff_exe, "rebase-db", "--driver", driver, conn_info, "--skip-tables", ignored_tables, base, our, base2their, conflicts])
+        _run_geodiff([config.geodiff_exe, "rebase-db", "--driver", driver, conn_info, "--skip-tables", _tables_to_string(ignored_tables), base, our, base2their, conflicts])
     else:
         _run_geodiff([config.geodiff_exe, "rebase-db", "--driver", driver, conn_info, base, our, base2their, conflicts])
 
@@ -124,14 +128,14 @@ def _geodiff_list_changes_summary(changeset):
 
 def _geodiff_make_copy(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, ignored_tables):
     if ignored_tables:
-        _run_geodiff([config.geodiff_exe, "copy", "--driver-1", src_driver, src_conn_info, "--driver-2", dst_driver, dst_conn_info, "--skip-tables", ignored_tables, src, dst])
+        _run_geodiff([config.geodiff_exe, "copy", "--driver-1", src_driver, src_conn_info, "--driver-2", dst_driver, dst_conn_info, "--skip-tables", _tables_to_string(ignored_tables), src, dst])
     else:
         _run_geodiff([config.geodiff_exe, "copy", "--driver-1", src_driver, src_conn_info, "--driver-2", dst_driver, dst_conn_info, src, dst])
 
 
 def _geodiff_create_changeset_dr(src_driver, src_conn_info, src, dst_driver, dst_conn_info, dst, changeset, ignored_tables):
     if ignored_tables:
-        _run_geodiff([config.geodiff_exe, "diff", "--driver-1", src_driver, src_conn_info, "--driver-2", dst_driver, dst_conn_info, "--skip-tables", ignored_tables, src, dst, changeset])
+        _run_geodiff([config.geodiff_exe, "diff", "--driver-1", src_driver, src_conn_info, "--driver-2", dst_driver, dst_conn_info, "--skip-tables", _tables_to_string(ignored_tables), src, dst, changeset])
     else:
         _run_geodiff([config.geodiff_exe, "diff", "--driver-1", src_driver, src_conn_info, "--driver-2", dst_driver, dst_conn_info, src, dst, changeset])
 
@@ -221,7 +225,7 @@ def pull(conn_cfg, mc):
     """ Downloads any changes from Mergin Maps and applies them to the database """
 
     print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
-    ignored_tables = config.get_ignored_tables(conn_cfg)
+    ignored_tables = config.get_ignored_tables()
 
     project_name = conn_cfg.mergin_project.split("/")[1]
     work_dir = os.path.join(config.working_dir, project_name)
