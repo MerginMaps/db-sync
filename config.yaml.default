@@ -13,6 +13,7 @@ connections:
      base: mergin_base
      mergin_project: john/myproject
      sync_file: sync.gpkg
+     skip_tables:
 
 daemon:
   sleep_time: 10

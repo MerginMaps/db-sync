@@ -48,7 +48,7 @@ def cleanup_db(conn, schema_base, schema_main):
     cur.execute("COMMIT")
 
 
-def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
+def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables=[]):
     """
     Initialize sync from given GeoPackage file:
     - (re)create Mergin Maps project with the file
@@ -75,13 +75,18 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path):
 
     # prepare dbsync config
     # patch config to fit testing purposes
+    if ignored_tables:
+        connection = {"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg", "skip_tables":ignored_tables}
+    else:
+        connection = {"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg"}
+
     config.update({
         'GEODIFF_EXE': GEODIFF_EXE,
         'WORKING_DIR': sync_project_dir,
         'MERGIN__USERNAME': API_USER,
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
-        'CONNECTIONS': [{"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg"}],
+        'CONNECTIONS': [connection],
     })
 
     dbsync_init(mc, from_gpkg=True)
@@ -320,3 +325,38 @@ def test_basic_both(mc):
 
     print("---")
     dbsync_status(mc)
+
+def test_init_with_skip(mc):
+    project_name = 'test_init_skip'
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base_2tables.gpkg')
+    project_dir = os.path.join(TMP_DIR, project_name + '_work')
+    db_schema_main = project_name + '_main'
+    db_schema_base = project_name + '_base'
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path, ["lines"])
+
+    # test that database schemas does not have ignored table
+    conn = psycopg2.connect(DB_CONNINFO)
+    cur = conn.cursor()
+    cur.execute(f"SELECT EXISTS (SELECT FROM pg_tables WHERE  schemaname = '{db_schema_main}' AND tablename = 'lines');")
+    assert cur.fetchone()[0] == False
+    cur.execute(f"SELECT count(*) from {db_schema_main}.points")
+    assert cur.fetchone()[0] == 0
+
+    # run again, nothing should change
+    dbsync_init(mc, from_gpkg=True)
+    cur.execute(f"SELECT EXISTS (SELECT FROM pg_tables WHERE  schemaname = '{db_schema_main}' AND tablename = 'lines');")
+    assert cur.fetchone()[0] == False
+    cur.execute(f"SELECT count(*) from {db_schema_main}.points")
+    assert cur.fetchone()[0] == 0
+
+    # make change in GPKG and push to server to create pending changes, it should pass but not sync
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'modified_all.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
+    mc.push_project(project_dir)
+
+    # pull server changes to db to make sure only points table is updated
+    dbsync_pull(mc)
+    cur.execute(f"SELECT EXISTS (SELECT FROM pg_tables WHERE  schemaname = '{db_schema_main}' AND tablename = 'lines');")
+    assert cur.fetchone()[0] == False
+    cur.execute(f"SELECT count(*) from {db_schema_main}.points")
+    assert cur.fetchone()[0] == 4

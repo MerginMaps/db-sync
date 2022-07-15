@@ -66,3 +66,12 @@ def test_config():
         config.update({'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "dbsync", "sync_file": "sync.gpkg"}]})
         validate_config(config)
 
+    _reset_config()
+    with pytest.raises(ConfigError, match="Config error: Ignored tables parameter should be a list"):
+        config.update({'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg", "skip_tables":""}]})
+        validate_config(config)
+
+    _reset_config()
+    with pytest.raises(ConfigError, match="Config error: Ignored tables list can not be empty"):
+        config.update({'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg", "skip_tables":[]}]})
+        validate_config(config)
