@@ -17,14 +17,21 @@ RUN apt-get update && apt-get install -y \
 
 # Python Mergin client
 RUN python3 -m pip install --upgrade pip
-COPY requirements.txt ./
-RUN pip3 install -r requirements.txt
+RUN pip3 install dynaconf==3.1.7
+RUN pip3 install scikit-build wheel cmake
 
 # geodiff (version >= 1.0.0 is needed with PostgreSQL support - we have to compile it)
-RUN git clone --branch 1.0.0 https://github.com/lutraconsulting/geodiff.git
+RUN git clone --branch master https://github.com/merginmaps/geodiff.git
 RUN cd geodiff && mkdir build && cd build && \
     cmake -DWITH_POSTGRESQL=TRUE ../geodiff && \
     make
+
+# build pygeodiff
+RUN cd geodiff && python3 setup.py build && python3 setup.py install
+
+# build mergin python client
+RUN git clone --branch master https://github.com/merginmaps/mergin-py-client.git
+RUN cd mergin-py-client && python3 setup.py build && python3 setup.py install
 
 # DB sync code
 WORKDIR /mergin-db-sync

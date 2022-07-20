@@ -3,6 +3,9 @@
 ## ?
 
 - Changed config file format from INI to YAML
+- Support for UUID, decimal, numeric, char(N) and character(N) data types
+- Support for multiple schemas synchronization
+- Excluding tables from synchronization
 
 ## 1.0.7
 
