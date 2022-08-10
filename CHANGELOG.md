@@ -1,6 +1,10 @@
 # Changelog
 
-## ?
+## 1.1.1
+
+- Fixed an error in "skip tables" functionality (#73)
+
+## 1.1.0
 
 - Changed config file format from INI to YAML
 - Support for UUID, decimal, numeric, char(N) and character(N) data types
