@@ -37,11 +37,11 @@ $ sudo docker run --name mergin_db_sync -it \
 ```
 and you should see a new geopackage file in your Mergin Maps project. To be able to use the Geopackage as a survey layer:
 
-- Download the generated gpkg file
+- [Download the generated gpkg file with Mergin Maps plugin for QGIS](https://merginmaps.com/docs/tutorials/opening-surveyed-data-on-your-computer/#locating-and-opening-your-project) to an empty folder.
 - Open it in QGIS
 - Style it (if you wish)
 - Save the QGIS project on the same folder as the downloaded gpkg file
-- Upload the QGIS project to your Mergin Maps project
+- Upload the QGIS project to your Mergin Maps project, using the [Synchronise Mergin Maps project button](https://merginmaps.com/docs/manage/plugin-sync-project/#synchronisation-in-qgis)
 
 The QGIS and Geopackage files will be a valid Mergin Maps project ready for surveying. Read more about QGIS project configuration on [Mergin Maps](https://merginmaps.com/docs/) and [Mergin Maps Input](https://merginmaps.com/docs/) documentations.
 
