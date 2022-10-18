@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2
+
+- Fixed increasing memory consumption (#78)
+
 ## 1.1.1
 
 - Fixed an error in "skip tables" functionality (#73)
