@@ -48,15 +48,6 @@ def cleanup_db(conn, schema_base, schema_main):
     cur.execute("COMMIT")
 
 
-def init_project_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables=[], *extra_init_files):
-    """
-    Initialize sync from given GeoPackage file:
-    - (re)create Mergin Maps project with the file
-    - (re)create local project working directory and sync directory
-    - configure DB sync and let it do the init (make copies to the database)
-    """
-
-
 def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables=[], *extra_init_files):
     """
     Initialize sync from given GeoPackage file:
