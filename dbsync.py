@@ -225,12 +225,16 @@ def _get_db_project_comment(conn, schema):
         return
     return comment
 
+
 def _redownload_project(conn_cfg, mc, work_dir, db_proj_info):
     print(f"Removing local working directory {work_dir}")
     shutil.rmtree(work_dir)
     print(f"Downloading version {db_proj_info['version']} of Mergin Maps project {conn_cfg.mergin_project} "
           f"to {work_dir}")
-    mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
+    try:
+        mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
+    except ClientError as e:
+        raise DbSyncError("Mergin Maps client error: " + str(e))
 
 
 def create_mergin_client():
