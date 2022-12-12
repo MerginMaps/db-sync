@@ -264,7 +264,10 @@ def revert_local_changes(mc, mp, local_changes=None):
         else:
             if delete_file:
                 os.remove(update_delete_filepath)
-            mc.download_file(mp.dir, update_delete_file, update_delete_filepath)
+            try:
+                mc.download_file(mp.dir, update_delete_file, update_delete_filepath, mp.metadata["version"])
+            except ClientError as e:
+                raise DbSyncError("Mergin Maps client error: " + str(e))
     leftovers = mp.get_push_changes()
     print("LEFTOVERS: " + str(leftovers))
     return leftovers
