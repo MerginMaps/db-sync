@@ -9,7 +9,7 @@ import psycopg2
 
 from mergin import MerginClient, ClientError
 from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError, _geodiff_make_copy, \
-    _get_db_project_comment, config
+    _get_db_project_comment, _get_mergin_project, config
 
 GEODIFF_EXE = os.environ.get('TEST_GEODIFF_EXE')
 DB_CONNINFO = os.environ.get('TEST_DB_CONNINFO')
@@ -48,14 +48,13 @@ def cleanup_db(conn, schema_base, schema_main):
     cur.execute("COMMIT")
 
 
-def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables=[]):
+def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables=[], *extra_init_files):
     """
     Initialize sync from given GeoPackage file:
     - (re)create Mergin Maps project with the file
     - (re)create local project working directory and sync directory
     - configure DB sync and let it do the init (make copies to the database)
     """
-
     full_project_name = API_USER + "/" + project_name
     project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working directory
     sync_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync')  # used by dbsync
@@ -71,6 +70,10 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
     mc.create_project(project_name)
     mc.download_project(full_project_name, project_dir)
     shutil.copy(source_gpkg_path, os.path.join(project_dir, 'test_sync.gpkg'))
+    for extra_filepath in extra_init_files:
+        extra_filename = os.path.basename(extra_filepath)
+        target_extra_filepath = os.path.join(project_dir, extra_filename)
+        shutil.copy(extra_filepath, target_extra_filepath)
     mc.push_project(project_dir)
 
     # prepare dbsync config
@@ -326,6 +329,7 @@ def test_basic_both(mc):
     print("---")
     dbsync_status(mc)
 
+
 def test_init_with_skip(mc):
     project_name = 'test_init_skip'
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base_2tables.gpkg')
@@ -360,3 +364,35 @@ def test_init_with_skip(mc):
     assert cur.fetchone()[0] == False
     cur.execute(f"SELECT count(*) from {db_schema_main}.points")
     assert cur.fetchone()[0] == 4
+
+
+def test_with_local_changes(mc):
+    project_name = 'test_local_changes'
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
+    extra_files = [os.path.join(TEST_DATA_DIR, f) for f in ["note_1.txt", "note_3.txt", "modified_all.gpkg"]]
+    dbsync_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync',
+                                      project_name)  # project location within dbsync working dir
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path, [], *extra_files)
+
+    # update GPKG
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(dbsync_project_dir, 'test_sync.gpkg'))
+    # update non-GPGK file
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'note_2.txt'), os.path.join(dbsync_project_dir, 'note_1.txt'))
+    # add GPKG file
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(dbsync_project_dir, 'inserted_1_A.gpkg'))
+    # add non-GPGK file
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'note_2.txt'), os.path.join(dbsync_project_dir, 'note_2.txt'))
+    # remove GPKG file
+    os.remove(os.path.join(dbsync_project_dir, 'modified_all.gpkg'))
+    # remove non-GPKG file
+    os.remove(os.path.join(dbsync_project_dir, 'note_3.txt'))
+    # Check local changes in the sync project dir
+    mp = _get_mergin_project(dbsync_project_dir)
+    local_changes = mp.get_push_changes()
+    del local_changes["renamed"]  # Not supported anymore
+    assert all(local_changes.values()) is True
+    dbsync_pull(mc)
+    local_changes = mp.get_push_changes()
+    assert any(local_changes.values()) is False
+    dbsync_status(mc)

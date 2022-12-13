@@ -17,6 +17,7 @@ import tempfile
 import random
 
 import psycopg2
+from itertools import chain
 from psycopg2 import sql
 
 from mergin import MerginClient, MerginProject, LoginError, ClientError
@@ -240,6 +241,38 @@ def create_mergin_client():
         raise DbSyncError("Mergin Maps client error: " + str(e))
 
 
+def revert_local_changes(mc, mp, local_changes=None):
+    """Revert local changes from the existing project."""
+    if local_changes is None:
+        local_changes = mp.get_push_changes()
+    if not any(local_changes.values()):
+        return local_changes
+    print("Reverting local changes: " + str(local_changes))
+    for add_change in local_changes["added"]:
+        added_file = add_change["path"]
+        added_filepath = os.path.join(mp.dir, added_file)
+        os.remove(added_filepath)
+    for update_delete_change in chain(local_changes["updated"], local_changes["removed"]):
+        update_delete_file = update_delete_change["path"]
+        update_delete_filepath = os.path.join(mp.dir, update_delete_file)
+        delete_file = os.path.isfile(update_delete_filepath)
+        if update_delete_file.lower().endswith(".gpkg"):
+            update_delete_filepath_base = os.path.join(mp.meta_dir, update_delete_file)
+            if delete_file:
+                os.remove(update_delete_filepath)
+            shutil.copy(update_delete_filepath_base, update_delete_filepath)
+        else:
+            if delete_file:
+                os.remove(update_delete_filepath)
+            try:
+                mc.download_file(mp.dir, update_delete_file, update_delete_filepath, mp.metadata["version"])
+            except ClientError as e:
+                raise DbSyncError("Mergin Maps client error: " + str(e))
+    leftovers = mp.get_push_changes()
+    print("LEFTOVERS: " + str(leftovers))
+    return leftovers
+
+
 def pull(conn_cfg, mc):
     """ Downloads any changes from Mergin Maps and applies them to the database """
 
@@ -267,10 +300,11 @@ def pull(conn_cfg, mc):
         # this could be e.g. DNS error
         raise DbSyncError("Mergin Maps client error: " + str(e))
 
-    status_push = mp.get_push_changes()
-    if status_push['added'] or status_push['updated'] or status_push['removed']:
-        raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
-
+    local_changes = mp.get_push_changes()
+    if any(local_changes.values()):
+        local_changes = revert_local_changes(mc, mp, local_changes)
+        if any(local_changes.values()):
+            raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(local_changes))
     if server_version == local_version:
         print("No changes on Mergin Maps.")
         return
