@@ -20,7 +20,7 @@ import psycopg2
 from itertools import chain
 from psycopg2 import sql
 
-from mergin import MerginClient, MerginProject, LoginError, ClientError
+from mergin import MerginClient, MerginProject, LoginError, ClientError, InvalidProject
 from version import __version__
 from config import config, validate_config, get_ignored_tables, ConfigError
 
@@ -225,6 +225,17 @@ def _get_db_project_comment(conn, schema):
     except (TypeError, json.decoder.JSONDecodeError):
         return
     return comment
+
+
+def _redownload_project(conn_cfg, mc, work_dir, db_proj_info):
+    print(f"Removing local working directory {work_dir}")
+    shutil.rmtree(work_dir)
+    print(f"Downloading version {db_proj_info['version']} of Mergin Maps project {conn_cfg.mergin_project} "
+          f"to {work_dir}")
+    try:
+        mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
+    except ClientError as e:
+        raise DbSyncError("Mergin Maps client error: " + str(e))
 
 
 def create_mergin_client():
@@ -549,14 +560,14 @@ def init(conn_cfg, mc, from_gpkg=True):
                   f"to {work_dir}")
             mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
         else:
-            local_version = _get_project_version(work_dir)
-            print(f"Working directory {work_dir} already exists, with project version {local_version}")
-            if local_version != db_proj_info["version"]:
-                print(f"Removing local working directory {work_dir}")
-                shutil.rmtree(work_dir)
-                print(f"Downloading version {db_proj_info['version']} of Mergin Maps project {conn_cfg.mergin_project} "
-                      f"to {work_dir}")
-                mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
+            try:
+                local_version = _get_project_version(work_dir)
+                print(f"Working directory {work_dir} already exists, with project version {local_version}")
+                if local_version != db_proj_info["version"]:
+                    _redownload_project(conn_cfg, mc, work_dir, db_proj_info)
+            except InvalidProject as e:
+                print(f"Error: {e}")
+                _redownload_project(conn_cfg, mc, work_dir, db_proj_info)
     else:
         if not os.path.exists(work_dir):
             print("Downloading latest Mergin Maps project " + conn_cfg.mergin_project + " to " + work_dir)
