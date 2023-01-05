@@ -600,17 +600,17 @@ def init(conn_cfg, mc, from_gpkg=True):
                   f"to {work_dir}")
             mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
         else:
-            print(f"Working directory {work_dir} already exists, with project version {local_version}")
             # Get project ID from DB if available
-            db_project_id = getattr(db_proj_info, "project_id", None)
-            mp = _get_mergin_project(work_dir)
-            local_project_id = _get_project_id(mp)
-            if (db_project_id and local_project_id) and (db_project_id != local_project_id):
-                raise DbSyncError(f"Database project ID doesn't match local project ID.")
-            # Compare local and database project version
             try:
                 local_version = _get_project_version(work_dir)
                 print(f"Working directory {work_dir} already exists, with project version {local_version}")
+                # Compare local and database project version
+                db_project_id_str = getattr(db_proj_info, "project_id", None)
+                db_project_id = uuid.UUID(db_project_id_str) if db_project_id_str else None
+                mp = _get_mergin_project(work_dir)
+                local_project_id = _get_project_id(mp)
+                if (db_project_id and local_project_id) and (db_project_id != local_project_id):
+                    raise DbSyncError(f"Database project ID doesn't match local project ID.")
                 if local_version != db_proj_info["version"]:
                     _redownload_project(conn_cfg, mc, work_dir, db_proj_info)
             except InvalidProject as e:
@@ -628,7 +628,6 @@ def init(conn_cfg, mc, from_gpkg=True):
     _check_has_working_dir(work_dir)
     local_version = _get_project_version(work_dir)
     mp = _get_mergin_project(work_dir)
-    print(mp.metadata)
     # Make sure that local project ID (if available) is the same as on  the server
     _validate_local_project_id(mp, mc)
 
