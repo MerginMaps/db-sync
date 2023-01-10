@@ -1,3 +1,4 @@
+import uuid
 
 import pytest
 import os
@@ -9,7 +10,7 @@ import psycopg2
 
 from mergin import MerginClient, ClientError
 from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError, _geodiff_make_copy, \
-    _get_db_project_comment, _get_mergin_project, config
+    _get_db_project_comment, _get_mergin_project, _get_project_id, _validate_local_project_id, config
 
 GEODIFF_EXE = os.environ.get('TEST_GEODIFF_EXE')
 DB_CONNINFO = os.environ.get('TEST_DB_CONNINFO')
@@ -409,3 +410,25 @@ def test_with_local_changes(mc):
     local_changes = mp.get_push_changes()
     assert any(local_changes.values()) is False
     dbsync_status(mc)
+
+
+def test_recreated_project_ids(mc):
+    project_name = 'test_recreated_project_ids'
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
+    project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working directory
+    full_project_name = API_USER + "/" + project_name
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+    # delete remote project
+    mc.delete_project(full_project_name)
+    # recreate project with the same name
+    mc.create_project(project_name)
+    # comparing project IDs after recreating it with the same name
+    mp = _get_mergin_project(project_dir)
+    local_project_id = _get_project_id(mp)
+    server_info = mc.project_info(full_project_name)
+    server_project_id = uuid.UUID(server_info["id"])
+    assert local_project_id is not None
+    assert server_project_id is not None
+    assert local_project_id != server_project_id
+    with pytest.raises(DbSyncError):
+        dbsync_status(mc)

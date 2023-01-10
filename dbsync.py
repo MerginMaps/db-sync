@@ -15,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import random
+import uuid
 
 import psycopg2
 from itertools import chain
@@ -199,7 +200,16 @@ def _get_project_version(work_path):
     return mp.metadata["version"]
 
 
-def _set_db_project_comment(conn, schema, project_name, version, error=None):
+def _get_project_id(mp):
+    """ Returns the project ID """
+    try:
+        project_id = uuid.UUID(mp.metadata["project_id"])
+    except (KeyError, ValueError):
+        project_id = None
+    return project_id
+
+
+def _set_db_project_comment(conn, schema, project_name, version, project_id=None, error=None):
     """ Set postgres COMMENT on SCHEMA with Mergin Maps project name and version
         or eventually error message if initialisation failed
     """
@@ -207,6 +217,8 @@ def _set_db_project_comment(conn, schema, project_name, version, error=None):
         "name": project_name,
         "version": version,
     }
+    if project_id:
+        comment["project_id"] = project_id
     if error:
         comment["error"] = error
     cur = conn.cursor()
@@ -236,6 +248,25 @@ def _redownload_project(conn_cfg, mc, work_dir, db_proj_info):
         mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
     except ClientError as e:
         raise DbSyncError("Mergin Maps client error: " + str(e))
+
+
+def _validate_local_project_id(mp, mc, server_info=None):
+    """Compare local project ID with remote version on the server."""
+    local_project_id = _get_project_id(mp)
+    if local_project_id is None:
+        return
+    project_path = mp.metadata["name"]
+    if server_info is None:
+        try:
+            server_info = mc.project_info(project_path)
+        except ClientError as e:
+            raise DbSyncError("Mergin Maps client error: " + str(e))
+
+    remote_project_id = uuid.UUID(server_info["id"])
+    if local_project_id != remote_project_id:
+        raise DbSyncError(
+            f"The local project ID ({local_project_id}) does not match the server project ID ({remote_project_id})"
+        )
 
 
 def create_mergin_client():
@@ -301,6 +332,10 @@ def pull(conn_cfg, mc):
     mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
+
+    # Make sure that local project ID (if available) is the same as on  the server
+    _validate_local_project_id(mp, mc)
+
     project_path = mp.metadata["name"]
     local_version = mp.metadata["version"]
 
@@ -390,25 +425,26 @@ def status(conn_cfg, mc):
     mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
-    status_push = mp.get_push_changes()
-    if status_push['added'] or status_push['updated'] or status_push['removed']:
-        raise DbSyncError("Pending changes in the local directory - that should never happen! " + str(status_push))
-
     project_path = mp.metadata["name"]
     local_version = mp.metadata["version"]
-    print("Working directory " + work_dir)
-    print("Mergin Maps project " + project_path + " at local version " + local_version)
-    print("")
     print("Checking status...")
-
-    # check if there are any pending changes on server
     try:
         server_info = mc.project_info(project_path, since=local_version)
     except ClientError as e:
         raise DbSyncError("Mergin Maps client error: " + str(e))
 
-    print("Server is at version " + server_info["version"])
+    # Make sure that local project ID (if available) is the same as on  the server
+    _validate_local_project_id(mp, mc, server_info)
 
+    status_push = mp.get_push_changes()
+    if status_push['added'] or status_push['updated'] or status_push['removed']:
+        raise DbSyncError("Pending changes in the local directory - that should never happen! " + str(status_push))
+
+    print("Working directory " + work_dir)
+    print("Mergin Maps project " + project_path + " at local version " + local_version)
+    print("")
+
+    print("Server is at version " + server_info["version"])
     status_pull = mp.get_pull_changes(server_info["files"])
     if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
         print("There are pending changes on server:")
@@ -462,6 +498,10 @@ def push(conn_cfg, mc):
     mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
+
+    # Make sure that local project ID (if available) is the same as on  the server
+    _validate_local_project_id(mp, mc)
+
     project_path = mp.metadata["name"]
     local_version = mp.metadata["version"]
 
@@ -560,9 +600,17 @@ def init(conn_cfg, mc, from_gpkg=True):
                   f"to {work_dir}")
             mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
         else:
+            # Get project ID from DB if available
             try:
                 local_version = _get_project_version(work_dir)
                 print(f"Working directory {work_dir} already exists, with project version {local_version}")
+                # Compare local and database project version
+                db_project_id_str = getattr(db_proj_info, "project_id", None)
+                db_project_id = uuid.UUID(db_project_id_str) if db_project_id_str else None
+                mp = _get_mergin_project(work_dir)
+                local_project_id = _get_project_id(mp)
+                if (db_project_id and local_project_id) and (db_project_id != local_project_id):
+                    raise DbSyncError(f"Database project ID doesn't match local project ID.")
                 if local_version != db_proj_info["version"]:
                     _redownload_project(conn_cfg, mc, work_dir, db_proj_info)
             except InvalidProject as e:
@@ -579,6 +627,9 @@ def init(conn_cfg, mc, from_gpkg=True):
     # make sure we have working directory now
     _check_has_working_dir(work_dir)
     local_version = _get_project_version(work_dir)
+    mp = _get_mergin_project(work_dir)
+    # Make sure that local project ID (if available) is the same as on  the server
+    _validate_local_project_id(mp, mc)
 
     # check there are no pending changes on server (or locally - which should never happen)
     status_pull, status_push, _ = mc.project_status(work_dir)
