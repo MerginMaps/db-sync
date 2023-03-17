@@ -10,7 +10,7 @@ import psycopg2
 
 from mergin import MerginClient, ClientError
 from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError, _geodiff_make_copy, \
-    _get_db_project_comment, _get_mergin_project, _get_project_id, _validate_local_project_id, config
+    _get_db_project_comment, _get_mergin_project, _get_project_id, _validate_local_project_id, config, _add_quotes_to_schema_name
 
 GEODIFF_EXE = os.environ.get('TEST_GEODIFF_EXE')
 DB_CONNINFO = os.environ.get('TEST_DB_CONNINFO')
@@ -45,8 +45,8 @@ def cleanup(mc, project, dirs):
 def cleanup_db(conn, schema_base, schema_main):
     """ Removes test schemas from previous tests """
     cur = conn.cursor()
-    cur.execute("DROP SCHEMA IF EXISTS {} CASCADE".format(schema_base))
-    cur.execute("DROP SCHEMA IF EXISTS {} CASCADE".format(schema_main))
+    cur.execute("DROP SCHEMA IF EXISTS {} CASCADE".format(_add_quotes_to_schema_name(schema_base)))
+    cur.execute("DROP SCHEMA IF EXISTS {} CASCADE".format(_add_quotes_to_schema_name(schema_main)))
     cur.execute("COMMIT")
 
 
@@ -57,7 +57,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
     - (re)create local project working directory and sync directory
     - configure DB sync and let it do the init (make copies to the database)
     """
-    full_project_name = API_USER + "/" + project_name
+    full_project_name = WORKSPACE + "/" + project_name
     project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working directory
     sync_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync')  # used by dbsync
     db_schema_main = project_name + '_main'
@@ -69,7 +69,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
     cleanup_db(conn, db_schema_base, db_schema_main)
 
     # prepare a new Mergin Maps project
-    mc.create_project(project_name)
+    mc.create_project(project_name, namespace=WORKSPACE)
     mc.download_project(full_project_name, project_dir)
     shutil.copy(source_gpkg_path, os.path.join(project_dir, 'test_sync.gpkg'))
     for extra_filepath in extra_init_files:
@@ -97,12 +97,12 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
     dbsync_init(mc, from_gpkg=True)
 
 
-def test_init_from_gpkg(mc):
-    project_name = 'test_init'
+@pytest.mark.parametrize("project_name", ['test_init', 'Test_init'])
+def test_init_from_gpkg(mc: MerginClient, project_name: str):
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')
-    db_schema_main = project_name + '_main'
-    db_schema_base = project_name + '_base'
+    db_schema_main = _add_quotes_to_schema_name(project_name + '_main')
+    db_schema_base = _add_quotes_to_schema_name(project_name + '_base')
 
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
 
@@ -115,7 +115,7 @@ def test_init_from_gpkg(mc):
     dbsync_init(mc, from_gpkg=True)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
-    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    db_proj_info = _get_db_project_comment(conn, project_name + '_base')
     assert db_proj_info["name"] == config.connections[0].mergin_project
     assert db_proj_info["version"] == 'v1'
 
@@ -137,7 +137,7 @@ def test_init_from_gpkg(mc):
     dbsync_init(mc, from_gpkg=True)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 3
-    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    db_proj_info = _get_db_project_comment(conn, project_name + '_base')
     assert db_proj_info["version"] == 'v1'
 
     # let's remove local working dir and download different version from server to mimic versions mismatch
@@ -145,14 +145,14 @@ def test_init_from_gpkg(mc):
     mc.download_project(config.connections[0].mergin_project, config.working_dir, 'v2')
     # run init again, it should handle local working dir properly (e.g. download correct version) and pass but not sync
     dbsync_init(mc, from_gpkg=True)
-    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    db_proj_info = _get_db_project_comment(conn, project_name + "_base")
     assert db_proj_info["version"] == 'v1'
 
     # pull server changes to db to make sure we can sync again
     dbsync_pull(mc)
     cur.execute(f"SELECT count(*) from {db_schema_main}.simple")
     assert cur.fetchone()[0] == 4
-    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    db_proj_info = _get_db_project_comment(conn, project_name + "_base")
     assert db_proj_info["version"] == 'v2'
 
     # update some feature from 'modified' db to create mismatch with src geopackage, it should pass but not sync
@@ -174,7 +174,7 @@ def test_init_from_gpkg(mc):
     mc.pull_project(project_dir)
     gpkg_cur.execute(f"SELECT * FROM simple WHERE fid={fid}")
     assert gpkg_cur.fetchone()[3] == 100
-    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    db_proj_info = _get_db_project_comment(conn, project_name + "_base")
     assert db_proj_info["version"] == 'v3'
 
     # update some feature from 'base' db to create mismatch with src geopackage and modified
@@ -196,8 +196,8 @@ def test_init_from_gpkg(mc):
     assert "There are pending changes in the local directory - that should never happen" in str(err.value)
 
 
-def test_init_from_gpkg_with_incomplete_dir(mc):
-    project_name = 'test_init'
+@pytest.mark.parametrize("project_name", ['test_init', 'Test_init'])
+def test_init_from_gpkg_with_incomplete_dir(mc: MerginClient, project_name: str):
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     init_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync', project_name)
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
@@ -209,15 +209,17 @@ def test_init_from_gpkg_with_incomplete_dir(mc):
     assert os.listdir(init_project_dir) == ['test_sync.gpkg', '.mergin']
 
 
-def test_basic_pull(mc):
+@pytest.mark.parametrize("project_name", ['test_sync_pull', 'Test_Sync_Pull'])
+def test_basic_pull(mc: MerginClient, project_name: str):
     """
     Test initialization and one pull from Mergin Maps to DB
     1. create a Mergin Maps project using py-client with a testing gpkg
     2. run init, check that everything is fine
     3. make change in gpkg (copy new version), check everything is fine
     """
+    project_name_main = _add_quotes_to_schema_name(project_name + "_main")
+    project_name_base = _add_quotes_to_schema_name(project_name + "_base")
 
-    project_name = 'test_sync_pull'
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working directory
 
@@ -227,7 +229,7 @@ def test_basic_pull(mc):
 
     # test that database schemas are created + tables are populated
     cur = conn.cursor()
-    cur.execute("SELECT count(*) from test_sync_pull_main.simple")
+    cur.execute(f"SELECT count(*) from {project_name_main}.simple")
     assert cur.fetchone()[0] == 3
 
     # make change in GPKG and push
@@ -239,19 +241,20 @@ def test_basic_pull(mc):
 
     # check that a feature has been inserted
     cur = conn.cursor()
-    cur.execute("SELECT count(*) from test_sync_pull_main.simple")
+    cur.execute(f"SELECT count(*) from {project_name_main}.simple")
     assert cur.fetchone()[0] == 4
-    db_proj_info = _get_db_project_comment(conn, 'test_sync_pull_base')
+    db_proj_info = _get_db_project_comment(conn, project_name + "_base")
     assert db_proj_info["version"] == 'v2'
 
     print("---")
     dbsync_status(mc)
 
 
-def test_basic_push(mc):
+@pytest.mark.parametrize("project_name", ['test_sync_push', 'Test_Sync_Push'])
+def test_basic_push(mc: MerginClient, project_name: str):
     """ Initialize a project and test push of a new row from PostgreSQL to Mergin Maps"""
+    project_name_main = _add_quotes_to_schema_name(project_name + "_main")
 
-    project_name = 'test_sync_push'
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working directory
 
@@ -261,19 +264,19 @@ def test_basic_push(mc):
 
     # test that database schemas are created + tables are populated
     cur = conn.cursor()
-    cur.execute("SELECT count(*) from test_sync_push_main.simple")
+    cur.execute(f"SELECT count(*) from {project_name_main}.simple")
     assert cur.fetchone()[0] == 3
 
     # make a change in PostgreSQL
     cur = conn.cursor()
-    cur.execute("INSERT INTO test_sync_push_main.simple (name, rating) VALUES ('insert in postgres', 123)")
+    cur.execute(f"INSERT INTO {project_name_main}.simple (name, rating) VALUES ('insert in postgres', 123)")
     cur.execute("COMMIT")
-    cur.execute("SELECT count(*) from test_sync_push_main.simple")
+    cur.execute(f"SELECT count(*) from {project_name_main}.simple")
     assert cur.fetchone()[0] == 4
 
     # push the change from DB to PostgreSQL
     dbsync_push(mc)
-    db_proj_info = _get_db_project_comment(conn, 'test_sync_push_base')
+    db_proj_info = _get_db_project_comment(conn, project_name + "_base")
     assert db_proj_info["version"] == 'v2'
 
     # pull new version of the project to the work project directory
@@ -289,13 +292,14 @@ def test_basic_push(mc):
     dbsync_status(mc)
 
 
-def test_basic_both(mc):
+@pytest.mark.parametrize("project_name", ['test_sync_both', 'Test_Sync_Both'])
+def test_basic_both(mc: MerginClient, project_name: str):
     """ Initializes a sync project and does both a change in Mergin Maps and in the database,
     and lets DB sync handle it: changes in PostgreSQL need to be rebased on top of
     changes in Mergin Maps server.
     """
+    project_name_main = _add_quotes_to_schema_name(project_name + "_main")
 
-    project_name = 'test_sync_both'
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working directory
 
@@ -305,7 +309,7 @@ def test_basic_both(mc):
 
     # test that database schemas are created + tables are populated
     cur = conn.cursor()
-    cur.execute(f"SELECT count(*) from {project_name}_main.simple")
+    cur.execute(f"SELECT count(*) from {project_name_main}.simple")
     assert cur.fetchone()[0] == 3
 
     # make change in GPKG and push
@@ -314,17 +318,17 @@ def test_basic_both(mc):
 
     # make a change in PostgreSQL
     cur = conn.cursor()
-    cur.execute(f"INSERT INTO {project_name}_main.simple (name, rating) VALUES ('insert in postgres', 123)")
+    cur.execute(f"INSERT INTO {project_name_main}.simple (name, rating) VALUES ('insert in postgres', 123)")
     cur.execute("COMMIT")
-    cur.execute(f"SELECT count(*) from {project_name}_main.simple")
+    cur.execute(f"SELECT count(*) from {project_name_main}.simple")
     assert cur.fetchone()[0] == 4
 
     # first pull changes from Mergin Maps to DB (+rebase changes in DB) and then push the changes from DB to Mergin Maps
     dbsync_pull(mc)
-    db_proj_info = _get_db_project_comment(conn, 'test_sync_both_base')
+    db_proj_info = _get_db_project_comment(conn, project_name + '_base')
     assert db_proj_info["version"] == 'v2'
     dbsync_push(mc)
-    db_proj_info = _get_db_project_comment(conn, 'test_sync_both_base')
+    db_proj_info = _get_db_project_comment(conn, project_name + '_base')
     assert db_proj_info["version"] == 'v3'
 
     # pull new version of the project to the work project directory
@@ -338,19 +342,20 @@ def test_basic_both(mc):
 
     # check that the insert has been applied to the DB
     cur = conn.cursor()
-    cur.execute(f"SELECT count(*) from {project_name}_main.simple")
+    cur.execute(f"SELECT count(*) from {project_name_main}.simple")
     assert cur.fetchone()[0] == 5
 
     print("---")
     dbsync_status(mc)
 
 
-def test_init_with_skip(mc):
-    project_name = 'test_init_skip'
+@pytest.mark.parametrize("project_name", ['test_init_skip', 'Test_Init_Skip'])
+def test_init_with_skip(mc: MerginClient, project_name: str):
+
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base_2tables.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')
-    db_schema_main = project_name + '_main'
-    db_schema_base = project_name + '_base'
+    db_schema_main = _add_quotes_to_schema_name(project_name + '_main')
+    db_schema_base = _add_quotes_to_schema_name(project_name + '_base')
 
     init_sync_from_geopackage(mc, project_name, source_gpkg_path, ["lines"])
 
@@ -381,8 +386,9 @@ def test_init_with_skip(mc):
     assert cur.fetchone()[0] == 4
 
 
-def test_with_local_changes(mc):
-    project_name = 'test_local_changes'
+@pytest.mark.parametrize("project_name", ['test_local_changes', 'Test_Local_Changes'])
+def test_with_local_changes(mc: MerginClient, project_name: str):
+
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     extra_files = [os.path.join(TEST_DATA_DIR, f) for f in ["note_1.txt", "note_3.txt", "modified_all.gpkg"]]
     dbsync_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync',
@@ -412,17 +418,17 @@ def test_with_local_changes(mc):
     assert any(local_changes.values()) is False
     dbsync_status(mc)
 
+@pytest.mark.parametrize("project_name", ['test_recreated_project_ids', 'Test_Recreated_Project_Ids'])
+def test_recreated_project_ids(mc: MerginClient, project_name: str):
 
-def test_recreated_project_ids(mc):
-    project_name = 'test_recreated_project_ids'
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working directory
-    full_project_name = API_USER + "/" + project_name
+    full_project_name = WORKSPACE + "/" + project_name
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
     # delete remote project
     mc.delete_project(full_project_name)
     # recreate project with the same name
-    mc.create_project(project_name)
+    mc.create_project(project_name, namespace=WORKSPACE)
     # comparing project IDs after recreating it with the same name
     mp = _get_mergin_project(project_dir)
     local_project_id = _get_project_id(mp)
