@@ -34,6 +34,12 @@ class DbSyncError(Exception):
     pass
 
 
+def _add_quotes_to_schema_name(schema: str) -> str:
+    if any(ele.isupper() for ele in schema):
+        schema = f'"{schema}"'
+    return schema
+
+
 def _tables_list_to_string(tables):
     return ";".join(tables)
 
