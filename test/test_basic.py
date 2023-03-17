@@ -17,6 +17,7 @@ DB_CONNINFO = os.environ.get('TEST_DB_CONNINFO')
 SERVER_URL = os.environ.get('TEST_MERGIN_URL')
 API_USER = os.environ.get('TEST_API_USERNAME')
 USER_PWD = os.environ.get('TEST_API_PASSWORD')
+WORKSPACE = os.environ.get('TEST_API_WORKSPACE')
 TMP_DIR = tempfile.gettempdir()
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'test_data')
 
