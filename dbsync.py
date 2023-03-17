@@ -236,6 +236,7 @@ def _set_db_project_comment(conn, schema, project_name, version, project_id=None
 def _get_db_project_comment(conn, schema):
     """ Get Mergin Maps project name and its current version in db schema"""
     cur = conn.cursor()
+    schema = _add_quotes_to_schema_name(schema)
     cur.execute("SELECT obj_description(%s::regnamespace, 'pg_namespace')", (schema, ))
     res = cur.fetchone()[0]
     try:
