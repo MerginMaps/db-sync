@@ -477,3 +477,84 @@ def test_project_names(mc: MerginClient, project_name: str):
     assert gpkg_cur.fetchone()[3] == 100
     db_proj_info = _get_db_project_comment(conn, db_schema_base)
     assert db_proj_info["version"] == 'v3'
+
+
+def test_init_from_gpkg_missing_schema(mc: MerginClient):
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
+    project_name = "test_init_missing_schema"
+    db_schema_base = project_name + "_base"
+    db_schema_main = project_name + "_main"
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    conn = psycopg2.connect(DB_CONNINFO)
+    cur = conn.cursor()
+
+    # sql query for schema
+    sql_cmd = f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_main}'"
+
+    # check that schema exists
+    cur.execute(sql_cmd)
+    cur.fetchone()[0] == db_schema_main
+
+    # drop base schema to mimic some mismatch
+    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(project_name + "_base")))
+    conn.commit()
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc, from_gpkg=True)
+    assert "The 'modified' schema exists but the base schema is missing" in str(err.value)
+
+    # check that schema does not exists anymore
+    cur.execute(sql_cmd)
+    cur.fetchone() is None
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    # sql query for schema
+    sql_cmd = f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_base}'"
+
+    # check that schema exists
+    cur.execute(sql_cmd)
+    cur.fetchone()[0] == db_schema_base
+
+    # drop main schema to mimic some mismatch
+    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(project_name + "_main")))
+    conn.commit()
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc, from_gpkg=True)
+    assert "The base schema exists but the modified schema is missing" in str(err.value)
+
+    # check that schema does not exists anymore
+    cur.execute(sql_cmd)
+    cur.fetchone() is None
+
+
+def test_init_from_gpkg_missing_comment(mc: MerginClient, project_name: str):
+    project_name = "test_init_missing_comment"
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
+    schema_name = project_name + "_base"
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    conn = psycopg2.connect(DB_CONNINFO)
+    cur = conn.cursor()
+
+    # sql query for schema
+    sql_cmd = f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{schema_name}'"
+
+    # check that schema exists
+    cur.execute(sql_cmd)
+    cur.fetchone()[0] == schema_name
+
+    # drop base schema to mimic some mismatch
+    query = sql.SQL("COMMENT ON SCHEMA {} IS %s").format(sql.Identifier(schema_name))
+    cur.execute(query.as_string(conn), ("",))
+    conn.commit()
+
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc, from_gpkg=True)
+    assert "Base schema exists but missing which project it belongs to" in str(err.value)
+
+    # check that schema does not exists anymore
+    cur.execute(sql_cmd)
+    cur.fetchone() is None
