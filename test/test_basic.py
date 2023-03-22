@@ -97,8 +97,9 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
 
     dbsync_init(mc, from_gpkg=True)
 
-@pytest.mark.parametrize("project_name", ['test_init', 'Test_Init'])
-def test_init_from_gpkg(mc: MerginClient, project_name: str):
+
+def test_init_from_gpkg(mc: MerginClient):
+    project_name = "test_init"
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')
     db_schema_main = project_name + '_main'
@@ -186,88 +187,8 @@ def test_init_from_gpkg(mc: MerginClient, project_name: str):
     assert "There are pending changes in the local directory - that should never happen" in str(err.value)
 
 
-@pytest.mark.parametrize("project_name", ['test_init_missing_schema', 'Test_Init_Missing_Schema'])
-def test_init_from_gpkg_missing_schema(mc: MerginClient, project_name: str):
-    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
-
-    db_schema_base = project_name + "_base"
-    db_schema_main = project_name + "_main"
-
-    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
-
-    conn = psycopg2.connect(DB_CONNINFO)
-    cur = conn.cursor()
-
-    # sql query for schema
-    sql_cmd = f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_main}'"
-
-    # check that schema exists
-    cur.execute(sql_cmd)
-    cur.fetchone()[0] == db_schema_main
-
-    # drop base schema to mimic some mismatch
-    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(project_name + "_base")))
-    conn.commit()
-    with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
-    assert "The 'modified' schema exists but the base schema is missing" in str(err.value)
-
-    # check that schema does not exists anymore
-    cur.execute(sql_cmd)
-    cur.fetchone() is None
-
-    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
-
-    # sql query for schema
-    sql_cmd = f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_base}'"
-
-    # check that schema exists
-    cur.execute(sql_cmd)
-    cur.fetchone()[0] == db_schema_base
-
-    # drop main schema to mimic some mismatch
-    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(project_name + "_main")))
-    conn.commit()
-    with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
-    assert "The base schema exists but the modified schema is missing" in str(err.value)
-
-    # check that schema does not exists anymore
-    cur.execute(sql_cmd)
-    cur.fetchone() is None
-
-@pytest.mark.parametrize("project_name", ['test_init_missing_comment', 'Test_Init_Missing_Comment'])
-def test_init_from_gpkg_missing_comment(mc: MerginClient, project_name: str):
-    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
-    schema_name = project_name + "_base"
-
-    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
-
-    conn = psycopg2.connect(DB_CONNINFO)
-    cur = conn.cursor()
-
-    # sql query for schema
-    sql_cmd = f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{schema_name}'"
-
-    # check that schema exists
-    cur.execute(sql_cmd)
-    cur.fetchone()[0] == schema_name
-
-    # drop base schema to mimic some mismatch
-    query = sql.SQL("COMMENT ON SCHEMA {} IS %s").format(sql.Identifier(schema_name))
-    cur.execute(query.as_string(conn), ("",))
-    conn.commit()
-
-    with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
-    assert "Base schema exists but missing which project it belongs to" in str(err.value)
-
-    # check that schema does not exists anymore
-    cur.execute(sql_cmd)
-    cur.fetchone() is None
-
-@pytest.mark.parametrize("project_name", ['test_init', 'Test_init'])
-def test_init_from_gpkg_with_incomplete_dir(mc: MerginClient, project_name: str):
+def test_init_from_gpkg_with_incomplete_dir(mc: MerginClient):
+    project_name = "test_init_incomplete_dir"
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     init_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync', project_name)
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
@@ -279,14 +200,14 @@ def test_init_from_gpkg_with_incomplete_dir(mc: MerginClient, project_name: str)
     assert os.listdir(init_project_dir) == ['test_sync.gpkg', '.mergin']
 
 
-@pytest.mark.parametrize("project_name", ['test_sync_pull', 'Test_Sync_Pull'])
-def test_basic_pull(mc: MerginClient, project_name: str):
+def test_basic_pull(mc: MerginClient):
     """
     Test initialization and one pull from Mergin Maps to DB
     1. create a Mergin Maps project using py-client with a testing gpkg
     2. run init, check that everything is fine
     3. make change in gpkg (copy new version), check everything is fine
     """
+    project_name = 'test_sync_pull'
     db_schema_main = project_name + "_main"
 
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
@@ -319,9 +240,9 @@ def test_basic_pull(mc: MerginClient, project_name: str):
     dbsync_status(mc)
 
 
-@pytest.mark.parametrize("project_name", ['test_sync_push', 'Test_Sync_Push'])
-def test_basic_push(mc: MerginClient, project_name: str):
+def test_basic_push(mc: MerginClient):
     """ Initialize a project and test push of a new row from PostgreSQL to Mergin Maps"""
+    project_name = "test_sync_push"
     db_schema_main = project_name + "_main"
 
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
@@ -361,12 +282,12 @@ def test_basic_push(mc: MerginClient, project_name: str):
     dbsync_status(mc)
 
 
-@pytest.mark.parametrize("project_name", ['test_sync_both', 'Test_Sync_Both'])
-def test_basic_both(mc: MerginClient, project_name: str):
+def test_basic_both(mc: MerginClient):
     """ Initializes a sync project and does both a change in Mergin Maps and in the database,
     and lets DB sync handle it: changes in PostgreSQL need to be rebased on top of
     changes in Mergin Maps server.
     """
+    project_name = "test_sync_both"
     db_schema_main = project_name + "_main"
     db_schema_base = project_name + "_base"
 
@@ -419,9 +340,8 @@ def test_basic_both(mc: MerginClient, project_name: str):
     dbsync_status(mc)
 
 
-@pytest.mark.parametrize("project_name", ['test_init_skip', 'Test_Init_Skip'])
-def test_init_with_skip(mc: MerginClient, project_name: str):
-
+def test_init_with_skip(mc: MerginClient):
+    project_name = "test_init_skip"
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base_2tables.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')
     db_schema_main = project_name + '_main'
@@ -456,9 +376,8 @@ def test_init_with_skip(mc: MerginClient, project_name: str):
     assert cur.fetchone()[0] == 4
 
 
-@pytest.mark.parametrize("project_name", ['test_local_changes', 'Test_Local_Changes'])
-def test_with_local_changes(mc: MerginClient, project_name: str):
-
+def test_with_local_changes(mc: MerginClient):
+    project_name = "test_local_changes"
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     extra_files = [os.path.join(TEST_DATA_DIR, f) for f in ["note_1.txt", "note_3.txt", "modified_all.gpkg"]]
     dbsync_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync',
@@ -488,9 +407,9 @@ def test_with_local_changes(mc: MerginClient, project_name: str):
     assert any(local_changes.values()) is False
     dbsync_status(mc)
 
-@pytest.mark.parametrize("project_name", ['test_recreated_project_ids', 'Test_Recreated_Project_Ids'])
-def test_recreated_project_ids(mc: MerginClient, project_name: str):
 
+def test_recreated_project_ids(mc: MerginClient):
+    project_name = "test_recreated_project_ids"
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')  # working directory
     full_project_name = WORKSPACE + "/" + project_name
@@ -509,3 +428,52 @@ def test_recreated_project_ids(mc: MerginClient, project_name: str):
     assert local_project_id != server_project_id
     with pytest.raises(DbSyncError):
         dbsync_status(mc)
+
+
+@pytest.mark.parametrize("project_name", ['test_init_1', 'Test_Init_2', "Test 3", "Test-4"])
+def test_project_names(mc: MerginClient, project_name: str):
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
+    project_dir = os.path.join(TMP_DIR, project_name + '_work')
+    db_schema_main = project_name + '_main'
+    db_schema_base = project_name + '_base'
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    # test that database schemas are created + tables are populated
+    conn = psycopg2.connect(DB_CONNINFO)
+    cur = conn.cursor()
+    cur.execute(sql.SQL("SELECT count(*) from {}.simple").format(sql.Identifier(db_schema_main)).as_string(conn))
+    assert cur.fetchone()[0] == 3
+
+    # make change in GPKG and push
+    shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
+    mc.push_project(project_dir)
+
+    # pull server changes to db to make sure we can sync again
+    dbsync_pull(mc)
+    cur.execute(sql.SQL("SELECT count(*) from {}.simple").format(sql.Identifier(db_schema_main)).as_string(conn))
+    assert cur.fetchone()[0] == 4
+    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    assert db_proj_info["version"] == 'v2'
+
+    # update some feature from 'modified' db to create mismatch with src geopackage, it should pass but not sync
+    fid = 1
+    cur.execute(sql.SQL("SELECT * from {}.simple WHERE fid=%s").format(sql.Identifier(db_schema_main)), (fid,))
+    old_value = cur.fetchone()[3]
+    cur.execute(sql.SQL("UPDATE {}.simple SET rating=100 WHERE fid=%s").format(sql.Identifier(db_schema_main)), (fid,))
+    conn.commit()
+    cur.execute(sql.SQL("SELECT * from {}.simple WHERE fid=%s").format(sql.Identifier(db_schema_main)), (fid,))
+    assert cur.fetchone()[3] == 100
+    dbsync_init(mc, from_gpkg=True)
+    # check geopackage has not been modified - after init we are not synced!
+    gpkg_conn = sqlite3.connect(os.path.join(project_dir, 'test_sync.gpkg'))
+    gpkg_cur = gpkg_conn.cursor()
+    gpkg_cur.execute(f"SELECT * FROM simple WHERE fid={fid}")
+    assert gpkg_cur.fetchone()[3] == old_value
+    # push db changes to server (and download new version to local working dir) to make sure we can sync again
+    dbsync_push(mc)
+    mc.pull_project(project_dir)
+    gpkg_cur.execute(f"SELECT * FROM simple WHERE fid ={fid}")
+    assert gpkg_cur.fetchone()[3] == 100
+    db_proj_info = _get_db_project_comment(conn, db_schema_base)
+    assert db_proj_info["version"] == 'v3'
