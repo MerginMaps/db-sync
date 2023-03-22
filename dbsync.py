@@ -16,6 +16,7 @@ import sys
 import tempfile
 import random
 import uuid
+import re
 
 import psycopg2
 from itertools import chain
@@ -35,7 +36,9 @@ class DbSyncError(Exception):
 
 
 def _add_quotes_to_schema_name(schema: str) -> str:
-    if any(ele.isupper() for ele in schema):
+    matches = re.findall(r"[^a-z0-9_]", schema)
+    if len(matches) != 0:
+        schema = schema.replace("\"", "\"\"")
         schema = f'"{schema}"'
     return schema
 
