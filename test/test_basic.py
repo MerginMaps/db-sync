@@ -97,7 +97,8 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
 
     dbsync_init(mc, from_gpkg=True)
 
-@pytest.mark.parametrize("project_name", ['test_init', 'Test_Init'])
+
+@pytest.mark.parametrize("project_name", ['test_init_1', 'Test_Init_2', "Test 3", "Test-4"])
 def test_init_from_gpkg(mc: MerginClient, project_name: str):
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')
@@ -196,7 +197,7 @@ def test_init_from_gpkg(mc: MerginClient, project_name: str):
     assert "There are pending changes in the local directory - that should never happen" in str(err.value)
 
 
-@pytest.mark.parametrize("project_name", ['test_init', 'Test_init'])
+@pytest.mark.parametrize("project_name", ['test_init_incomplete_dir_1', 'Test_Init_Incomplete_Dir_2'])
 def test_init_from_gpkg_with_incomplete_dir(mc: MerginClient, project_name: str):
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     init_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync', project_name)
@@ -209,7 +210,7 @@ def test_init_from_gpkg_with_incomplete_dir(mc: MerginClient, project_name: str)
     assert os.listdir(init_project_dir) == ['test_sync.gpkg', '.mergin']
 
 
-@pytest.mark.parametrize("project_name", ['test_sync_pull', 'Test_Sync_Pull'])
+@pytest.mark.parametrize("project_name", ['test_sync_pull_1', 'Test_Sync_Pull_2'])
 def test_basic_pull(mc: MerginClient, project_name: str):
     """
     Test initialization and one pull from Mergin Maps to DB
@@ -249,7 +250,7 @@ def test_basic_pull(mc: MerginClient, project_name: str):
     dbsync_status(mc)
 
 
-@pytest.mark.parametrize("project_name", ['test_sync_push', 'Test_Sync_Push'])
+@pytest.mark.parametrize("project_name", ['test_sync_push_1', 'Test_Sync_Push_2'])
 def test_basic_push(mc: MerginClient, project_name: str):
     """ Initialize a project and test push of a new row from PostgreSQL to Mergin Maps"""
     db_schema_main = project_name + "_main"
@@ -291,7 +292,7 @@ def test_basic_push(mc: MerginClient, project_name: str):
     dbsync_status(mc)
 
 
-@pytest.mark.parametrize("project_name", ['test_sync_both', 'Test_Sync_Both'])
+@pytest.mark.parametrize("project_name", ['test_sync_both_1', 'Test_Sync_Both_2'])
 def test_basic_both(mc: MerginClient, project_name: str):
     """ Initializes a sync project and does both a change in Mergin Maps and in the database,
     and lets DB sync handle it: changes in PostgreSQL need to be rebased on top of
@@ -349,7 +350,7 @@ def test_basic_both(mc: MerginClient, project_name: str):
     dbsync_status(mc)
 
 
-@pytest.mark.parametrize("project_name", ['test_init_skip', 'Test_Init_Skip'])
+@pytest.mark.parametrize("project_name", ['test_init_skip_1', 'Test_Init_Skip_2'])
 def test_init_with_skip(mc: MerginClient, project_name: str):
 
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base_2tables.gpkg')
@@ -386,7 +387,7 @@ def test_init_with_skip(mc: MerginClient, project_name: str):
     assert cur.fetchone()[0] == 4
 
 
-@pytest.mark.parametrize("project_name", ['test_local_changes', 'Test_Local_Changes'])
+@pytest.mark.parametrize("project_name", ['test_local_changes_1', 'Test_Local_Changes_2'])
 def test_with_local_changes(mc: MerginClient, project_name: str):
 
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
@@ -418,7 +419,7 @@ def test_with_local_changes(mc: MerginClient, project_name: str):
     assert any(local_changes.values()) is False
     dbsync_status(mc)
 
-@pytest.mark.parametrize("project_name", ['test_recreated_project_ids', 'Test_Recreated_Project_Ids'])
+@pytest.mark.parametrize("project_name", ['test_recreated_project_ids_1', 'Test_Recreated_Project_Ids_2'])
 def test_recreated_project_ids(mc: MerginClient, project_name: str):
 
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
