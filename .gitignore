@@ -4,3 +4,5 @@ config.ini
 mergin
 .coverage
 htmlcov
+.vscode
+.env

@@ -140,6 +140,7 @@ To run automatic tests:
     export TEST_MERGIN_URL=<url>                # testing server
     export TEST_API_USERNAME=<username>
     export TEST_API_PASSWORD=<pwd>
+    export TEST_API_WORKSPACE=<workspace>
     pytest-3 test/
 
 
