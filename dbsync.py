@@ -60,6 +60,12 @@ def _check_has_sync_file(file_path):
         raise DbSyncError("The output GPKG file does not exist: " + file_path)
 
 
+def _drop_schema(conn, schema_name: str) -> None:
+    cur = conn.cursor()
+    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema_name)))
+    conn.commit()
+
+
 def _check_schema_exists(conn, schema_name):
     cur = conn.cursor()
     cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = %s)", (schema_name,))
