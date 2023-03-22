@@ -598,6 +598,7 @@ def init(conn_cfg, mc, from_gpkg=True):
         # this is not a first run of db-sync init
         db_proj_info = _get_db_project_comment(conn, conn_cfg.base)
         if not db_proj_info:
+            _drop_schema(conn, conn_cfg.base)
             raise DbSyncError("Base schema exists but missing which project it belongs to")
         if "error" in db_proj_info:
             changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
@@ -674,8 +675,10 @@ def init(conn_cfg, mc, from_gpkg=True):
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
         elif modified_schema_exists:
+            _drop_schema(conn, conn_cfg.modified)
             raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {conn_cfg.base}")
         elif base_schema_exists:
+            _drop_schema(conn, conn_cfg.base)
             raise DbSyncError(f"The base schema exists but the modified schema is missing: {conn_cfg.modified}")
 
         # initialize: we have an existing GeoPackage in our Mergin Maps project and we want to initialize database
