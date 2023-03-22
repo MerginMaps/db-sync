@@ -16,6 +16,7 @@ import sys
 import tempfile
 import random
 import uuid
+import pathlib
 
 import psycopg2
 from itertools import chain
@@ -786,11 +787,21 @@ def dbsync_status(mc):
 def show_usage():
     print("dbsync")
     print("")
-    print("    dbsync init-from-db   = will create base schema in DB + create gpkg file in working copy")
-    print("    dbsync init-from-gpkg = will create base and main schema in DB from gpkg file in working copy")
-    print("    dbsync status      = will check whether there is anything to pull or push")
-    print("    dbsync push        = will push changes from DB to Mergin Maps")
-    print("    dbsync pull        = will pull changes from Mergin Maps to DB")
+    print("    dbsync init-from-db [config_file.yaml]   = will create base schema in DB + create gpkg file in working copy")
+    print("    dbsync init-from-gpkg [config_file.yaml] = will create base and main schema in DB from gpkg file in working copy")
+    print("    dbsync status [config_file.yaml]         = will check whether there is anything to pull or push")
+    print("    dbsync push [config_file.yaml]           = will push changes from DB to Mergin Maps")
+    print("    dbsync pull [config_file.yaml]           = will pull changes from Mergin Maps to DB")
+
+
+def _update_config_path(path_param: str) -> None:
+    config_file_path = pathlib.Path(path_param).absolute()
+
+    if config_file_path.exists():
+        print(f"== Using {path_param} config file ==")
+        config.settings_files = [config_file_path.absolute()]
+    else:
+        raise IOError
 
 
 def main():
@@ -799,6 +810,15 @@ def main():
         return
 
     print(f"== Starting Mergin Maps DB Sync version {__version__} ==")
+
+    if len(sys.argv) == 3:
+        try:
+            _update_config_path(sys.argv[2])
+        except IOError:
+            print(f"Error: Config file {sys.argv[2]} does not exist.")
+            exit()
+    else:
+        print("== Config file not specified, using config.yaml as default filename.")
 
     try:
         validate_config(config)

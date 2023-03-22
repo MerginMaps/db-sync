@@ -16,6 +16,15 @@ from config import config, validate_config, ConfigError
 def main():
     print(f"== starting mergin-db-sync daemon == version {__version__} ==")
 
+    if len(sys.argv) == 2:
+        try:
+            dbsync._update_config_path(sys.argv[1])
+        except IOError:
+            print(f"Error: Config file {sys.argv[1]} does not exist.")
+            exit()
+    else:
+        print("== Config file not specified, using config.yaml as default filename.")
+
     sleep_time = config.as_int("daemon.sleep_time")
     try:
         validate_config(config)
