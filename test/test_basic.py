@@ -97,7 +97,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
     dbsync_init(mc, from_gpkg=True)
 
 
-@pytest.mark.parametrize("project_name", ['test_init', 'Test_init'])
+@pytest.mark.parametrize("project_name", ['test_init', 'Test_Init'])
 def test_init_from_gpkg(mc: MerginClient, project_name: str):
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     project_dir = os.path.join(TMP_DIR, project_name + '_work')
