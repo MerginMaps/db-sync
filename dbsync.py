@@ -708,6 +708,7 @@ def init(conn_cfg, mc, from_gpkg=True):
                 raise DbSyncError('Initialization of db-sync failed due to a bug in geodiff.\n '
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
+            print(f"Cleaning up after a failed DB sync init - dropping schemas {conn_cfg.base} and {conn_cfg.modified}.")
             _drop_schema(conn_cfg.base)
             _drop_schema(conn_cfg.modified)
             raise
@@ -764,6 +765,7 @@ def init(conn_cfg, mc, from_gpkg=True):
                 raise DbSyncError('Initialization of db-sync failed due to a bug in geodiff.\n '
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
+            print(f"Cleaning up after a failed DB sync init - dropping schema {conn_cfg.base}.")
             _drop_schema(conn_cfg.base)
             raise
 
