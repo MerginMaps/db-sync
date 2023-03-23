@@ -501,7 +501,7 @@ def test_init_from_gpkg_missing_schema(mc: MerginClient):
     with pytest.raises(DbSyncError) as err:
         dbsync_init(mc, from_gpkg=True)
     assert "The 'modified' schema exists but the base schema is missing" in str(err.value)
-    assert f"Schema `{db_schema_main}` should be removed or renamed" in str(err.value)
+    assert "This may be a result of a previously failed attempt to initialize DB sync" in str(err.value)
 
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
 
@@ -516,7 +516,7 @@ def test_init_from_gpkg_missing_schema(mc: MerginClient):
     with pytest.raises(DbSyncError) as err:
         dbsync_init(mc, from_gpkg=True)
     assert "The base schema exists but the modified schema is missing" in str(err.value)
-    assert f"Schema `{db_schema_base}` should be removed or renamed" in str(err.value)
+    assert "This may be a result of a previously failed attempt to initialize DB sync" in str(err.value)
 
 
 def test_init_from_gpkg_missing_comment(mc: MerginClient):
