@@ -490,43 +490,33 @@ def test_init_from_gpkg_missing_schema(mc: MerginClient):
     conn = psycopg2.connect(DB_CONNINFO)
     cur = conn.cursor()
 
-    # sql query for schema
-    sql_cmd = f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_main}'"
-
-    # check that schema exists
-    cur.execute(sql_cmd)
-    cur.fetchone()[0] == db_schema_main
-
     # drop base schema to mimic some mismatch
-    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(project_name + "_base")))
+    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(db_schema_base)))
     conn.commit()
+
+    # check that removed schema does not exists
+    cur.execute(f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_base}'")
+    cur.fetchone() is None
+
     with pytest.raises(DbSyncError) as err:
         dbsync_init(mc, from_gpkg=True)
     assert "The 'modified' schema exists but the base schema is missing" in str(err.value)
-
-    # check that schema does not exists anymore
-    cur.execute(sql_cmd)
-    cur.fetchone() is None
+    assert f"Schema `{db_schema_main}` should be removed or renamed" in str(err.value)
 
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
 
-    # sql query for schema
-    sql_cmd = f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_base}'"
-
-    # check that schema exists
-    cur.execute(sql_cmd)
-    cur.fetchone()[0] == db_schema_base
-
     # drop main schema to mimic some mismatch
-    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(project_name + "_main")))
+    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(db_schema_main)))
     conn.commit()
+
+    # check that removed schema does not exists
+    cur.execute(f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_main}'")
+    cur.fetchone() is None
+
     with pytest.raises(DbSyncError) as err:
         dbsync_init(mc, from_gpkg=True)
     assert "The base schema exists but the modified schema is missing" in str(err.value)
-
-    # check that schema does not exists anymore
-    cur.execute(sql_cmd)
-    cur.fetchone() is None
+    assert f"Schema `{db_schema_base}` should be removed or renamed" in str(err.value)
 
 
 def test_init_from_gpkg_missing_comment(mc: MerginClient):
