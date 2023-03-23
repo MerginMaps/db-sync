@@ -601,8 +601,9 @@ def init(conn_cfg, mc, from_gpkg=True):
         # this is not a first run of db-sync init
         db_proj_info = _get_db_project_comment(conn, conn_cfg.base)
         if not db_proj_info:
-            _drop_schema(conn, conn_cfg.base)
-            raise DbSyncError("Base schema exists but missing which project it belongs to")
+            raise DbSyncError("Base schema exists but missing which project it belongs to. "
+                              f"Both schemata `{conn_cfg.base}` and `{conn_cfg.modified}` should be deleted "
+                              "so that DB Sync can set up sync properly")
         if "error" in db_proj_info:
             changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
                                                   conn_cfg.conn_info, conn_cfg.base, ignored_tables,
@@ -678,11 +679,13 @@ def init(conn_cfg, mc, from_gpkg=True):
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
         elif modified_schema_exists:
-            _drop_schema(conn, conn_cfg.modified)
-            raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {conn_cfg.base}")
+            raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {conn_cfg.base}. "
+                              f"Schema `{conn_cfg.modified}` should be removed or renamed "
+                              "so that DB Sync can set up sync properly.")
         elif base_schema_exists:
-            _drop_schema(conn, conn_cfg.base)
-            raise DbSyncError(f"The base schema exists but the modified schema is missing: {conn_cfg.modified}")
+            raise DbSyncError(f"The base schema exists but the modified schema is missing: {conn_cfg.modified}. "
+                              f"Schema `{conn_cfg.base}` should be removed or renamed "
+                              "so that DB Sync can set up sync properly.")
 
         # initialize: we have an existing GeoPackage in our Mergin Maps project and we want to initialize database
         print("The base and modified schemas do not exist yet, going to initialize them ...")
@@ -721,9 +724,9 @@ def init(conn_cfg, mc, from_gpkg=True):
         if os.path.exists(gpkg_full_path) and base_schema_exists:
             # make sure output gpkg is in sync with db or fail
             summary_modified = _compare_datasets(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified,
-                                                "sqlite", "", gpkg_full_path, ignored_tables)
+                                                 "sqlite", "", gpkg_full_path, ignored_tables)
             summary_base = _compare_datasets(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base,
-                                            "sqlite", "", gpkg_full_path, ignored_tables)
+                                             "sqlite", "", gpkg_full_path, ignored_tables)
             if len(summary_base):
                 print(f"Local project version at {_get_project_version(work_dir)} and base schema at {db_proj_info['version']}")
                 _print_changes_summary(summary_base, "Base schema changes:")
