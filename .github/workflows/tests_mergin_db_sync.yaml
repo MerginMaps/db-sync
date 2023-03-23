@@ -1,0 +1,60 @@
+name: Tests for Mergin DB Sync
+
+on:
+  push:
+    paths:
+    - "test/**"
+    - "**.py"
+    - ".github/workflows/tests_mergin_db_sync.yaml"
+
+env:
+  TEST_GEODIFF_EXE: geodiff
+  TEST_DB_CONNINFO: host=localhost dbname=test_db user=postgres password=postgres port=5432
+  TEST_MERGIN_URL: https://test.dev.merginmaps.com
+  TEST_API_USERNAME: test_db_sync
+  TEST_API_PASSWORD: ${{ secrets.TEST_API_PASSWORD }}
+  TEST_API_WORKSPACE: test-db-sync
+
+jobs:
+
+  Tests-for-Mergin-DB-Sync:
+
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:latest
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+
+      - name: Install Geodiff
+        run: |
+          sudo apt-get install libsqlite3-dev libpq-dev
+          git clone https://github.com/MerginMaps/geodiff.git
+          cd geodiff
+          mkdir build && cd build
+          cmake -DWITH_POSTGRESQL=TRUE ../geodiff
+          sudo make install
+          sudo cp geodiff /usr/local/bin 
+
+      - name: Check Geodiff version    
+        run: geodiff version
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install mergin-client pytest pytest-cov dynaconf psycopg2
+
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Run tests
+        run: |
+          pytest test --cov=. --cov-report=term-missing:skip-covered -vv

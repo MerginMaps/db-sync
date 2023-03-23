@@ -192,12 +192,12 @@ def test_init_from_gpkg_with_incomplete_dir(mc: MerginClient):
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     init_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync', project_name)
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
-    assert os.listdir(init_project_dir) == ['test_sync.gpkg', '.mergin']
+    assert set(os.listdir(init_project_dir)) == set(['test_sync.gpkg', '.mergin'])
     shutil.rmtree(init_project_dir)  # Remove dir with content
     os.makedirs(init_project_dir)  # Recreate empty project working dir
     assert os.listdir(init_project_dir) == []
     dbsync_init(mc, from_gpkg=True)
-    assert os.listdir(init_project_dir) == ['test_sync.gpkg', '.mergin']
+    assert set(os.listdir(init_project_dir)) == set(['test_sync.gpkg', '.mergin'])
 
 
 def test_basic_pull(mc: MerginClient):
