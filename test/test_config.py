@@ -21,9 +21,7 @@ def _reset_config():
         'MERGIN__USERNAME': API_USER,
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
-        'WORKING_DIR': "/tmp/working_project",
-        'GEODIFF_EXE': "geodiff",
-        'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg"}]
+        'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg", "init_from": "gpkg"}]
     })
 
 
