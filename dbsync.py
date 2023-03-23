@@ -768,7 +768,6 @@ def init(conn_cfg, mc, from_gpkg=True):
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
             _drop_schema(conn_cfg.base)
-            _drop_schema(conn_cfg.modified)
             raise
 
         # upload gpkg to Mergin Maps (client takes care of storing metadata)
