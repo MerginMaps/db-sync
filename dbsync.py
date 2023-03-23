@@ -602,8 +602,7 @@ def init(conn_cfg, mc, from_gpkg=True):
         db_proj_info = _get_db_project_comment(conn, conn_cfg.base)
         if not db_proj_info:
             raise DbSyncError("Base schema exists but missing which project it belongs to. "
-                              f"Both schemata `{conn_cfg.base}` and `{conn_cfg.modified}` should be deleted in the database "
-                              "so that DB Sync can set up sync properly")
+                              f"This may be a result of a previously failed attempt to initialize DB sync. You can delete both schemas `{conn_cfg.base}` and `{conn_cfg.modified}` to fix this error and restart DB sync.")
         if "error" in db_proj_info:
             changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
                                                   conn_cfg.conn_info, conn_cfg.base, ignored_tables,
