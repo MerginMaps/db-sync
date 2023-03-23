@@ -7,10 +7,16 @@ License: MIT
 """
 
 from dynaconf import Dynaconf
+import platform
+import tempfile
+import pathlib
+import subprocess
 
 config = Dynaconf(
     envvar_prefix=False,
     settings_files=['config.yaml'],
+    geodiff_exe="geodiff.exe" if platform.system() == "Windows" else "geodiff",
+    working_dir=(pathlib.Path(tempfile.gettempdir()) / "dbsync").as_posix()
 )
 
 
@@ -21,11 +27,11 @@ class ConfigError(Exception):
 def validate_config(config):
     """ Validate config - make sure values are consistent """
 
-    if not config.working_dir:
-        raise ConfigError("Config error: Working directory is not set")
-
-    if not config.geodiff_exe:
-        raise ConfigError("Config error: Path to geodiff executable is not set")
+    # validate that geodiff can be found, otherwise it does not make sense to run DB Sync
+    try:
+        subprocess.run([config.geodiff_exe, "help"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except FileNotFoundError:
+        raise ConfigError("Config error: Geodiff executable not found. Is it installed and on available in `PATH` environmental variable?")
 
     if not (config.mergin.url and config.mergin.username and config.mergin.password):
         raise ConfigError("Config error: Incorrect mergin settings")
