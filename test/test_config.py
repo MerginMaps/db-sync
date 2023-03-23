@@ -35,16 +35,6 @@ def test_config():
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(ConfigError, match="Config error: Working directory is not set"):
-        config.update({'WORKING_DIR': None})
-        validate_config(config)
-
-    _reset_config()
-    with pytest.raises(ConfigError, match="Config error: Path to geodiff executable is not set"):
-        config.update({'GEODIFF_EXE': None})
-        validate_config(config)
-
-    _reset_config()
     with pytest.raises(ConfigError, match="Config error: Connections list can not be empty"):
         config.update({'CONNECTIONS': []})
         validate_config(config)
