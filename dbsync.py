@@ -718,7 +718,8 @@ def init(conn_cfg, mc, from_gpkg=True):
         _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version)
     else:
         if not modified_schema_exists:
-            raise DbSyncError("The 'modified' schema does not exist: " + conn_cfg.modified)
+            raise DbSyncError(f"The 'modified' schema does not exist: {conn_cfg.modified}. "
+                              "This schema is necessary if initialization should be done from database (parameter `init-from-db`).")
 
         if os.path.exists(gpkg_full_path) and base_schema_exists:
             # make sure output gpkg is in sync with db or fail
