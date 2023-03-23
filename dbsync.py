@@ -569,8 +569,10 @@ def push(conn_cfg, mc):
     _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
 
 
-def init(conn_cfg, mc, from_gpkg=True):
+def init(conn_cfg, mc):
     """ Initialize the dbsync so that it is possible to do two-way sync between Mergin Maps and a database """
+
+    from_gpkg = conn_cfg.init_from
 
     print(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
     ignored_tables = get_ignored_tables(conn_cfg)
@@ -767,9 +769,9 @@ def init(conn_cfg, mc, from_gpkg=True):
         _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
 
 
-def dbsync_init(mc, from_gpkg=True):
+def dbsync_init(mc):
     for conn in config.connections:
-        init(conn, mc, from_gpkg)
+        init(conn, mc)
 
     print("Init done!")
 
