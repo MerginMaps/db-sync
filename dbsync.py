@@ -711,9 +711,8 @@ def init(conn_cfg, mc, from_gpkg=True):
                 raise DbSyncError('Initialization of db-sync failed due to a bug in geodiff.\n '
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
-            # add comment to base schema before throwing exception
-            _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version,
-                                    error='Initialization of db-sync failed due to a bug in geodiff')
+            _drop_schema(conn_cfg.base)
+            _drop_schema(conn_cfg.modified)
             raise
 
         _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version)
@@ -767,8 +766,8 @@ def init(conn_cfg, mc, from_gpkg=True):
                 raise DbSyncError('Initialization of db-sync failed due to a bug in geodiff.\n '
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
-            _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version,
-                                    error='Initialization of db-sync failed due to a bug in geodiff')
+            _drop_schema(conn_cfg.base)
+            _drop_schema(conn_cfg.modified)
             raise
 
         # upload gpkg to Mergin Maps (client takes care of storing metadata)
