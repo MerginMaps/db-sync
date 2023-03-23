@@ -529,7 +529,7 @@ def test_init_from_gpkg_missing_schema(mc: MerginClient):
     cur.fetchone() is None
 
 
-def test_init_from_gpkg_missing_comment(mc: MerginClient, project_name: str):
+def test_init_from_gpkg_missing_comment(mc: MerginClient):
     project_name = "test_init_missing_comment"
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
     schema_name = project_name + "_base"
