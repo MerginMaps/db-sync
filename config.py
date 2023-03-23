@@ -40,8 +40,9 @@ def validate_config(config):
         raise ConfigError("Config error: Connections list can not be empty")
 
     for conn in config.connections:
-        if not all(hasattr(conn, attr) for attr in ["driver", "conn_info", "modified", "base", "mergin_project", "sync_file"]):
-            raise ConfigError("Config error: Incorrect connection settings")
+        for attr in ["driver", "conn_info", "init_from", "modified", "base", "mergin_project", "sync_file"]:
+            if not hasattr(conn, attr):
+                raise ConfigError(f"Config error: Incorrect connection settings. Required parameter `{attr}` is missing.")
 
         if conn.driver != "postgres":
             raise ConfigError("Config error: Only 'postgres' driver is currently supported.")
