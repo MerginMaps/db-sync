@@ -679,8 +679,7 @@ def init(conn_cfg, mc, from_gpkg=True):
                 return  # nothing to do
         elif modified_schema_exists:
             raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {conn_cfg.base}. "
-                              f"Schema `{conn_cfg.modified}` should be removed or renamed in the database "
-                              "so that DB Sync can set up sync properly.")
+                              f"This may be a result of a previously failed attempt to initialize DB sync. You can delete schema `{conn_cfg.modified}` in the database to fix this error and restart DB sync.")
         elif base_schema_exists:
             raise DbSyncError(f"The base schema exists but the modified schema is missing: {conn_cfg.modified}. "
                               f"Schema `{conn_cfg.base}` should be removed or renamed in the database "
