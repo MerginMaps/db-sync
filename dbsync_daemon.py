@@ -7,13 +7,31 @@
 import datetime
 import sys
 import time
+import argparse
 
 import dbsync
 from version import __version__
-from config import config, validate_config, ConfigError
+from config import config, validate_config, ConfigError, update_config_path
 
 
 def main():
+
+    parser = argparse.ArgumentParser(prog='dbsync_deamon.py',
+                                     description='Synchronization tool between Mergin Maps project and database.',
+                                     epilog='www.merginmaps.com')
+
+    parser.add_argument("config_file", nargs="?", default="config.yaml", help="Path to file with configuration. Default value is config.yaml in current working directory.")
+    parser.add_argument("--skip-init", action="store_true", help="Skip DB Sync init step.")
+    parser.add_argument("--single-run", action="store_true", help="Run just once performing single pull and push operation, instead of running in infinite loop.")
+
+    args = parser.parse_args()
+
+    try:
+        update_config_path(args.config_file)
+    except IOError as e:
+        print("Error: " + str(e))
+        return
+
     print(f"== starting mergin-db-sync daemon == version {__version__} ==")
 
     sleep_time = config.as_int("daemon.sleep_time")
@@ -26,12 +44,14 @@ def main():
     print("Logging in to Mergin...")
     mc = dbsync.create_mergin_client()
 
-    # run initialization before starting the sync loop
-    dbsync.dbsync_init(mc)
+    if args.single_run:
 
-    while True:
-
-        print(datetime.datetime.now())
+        if not args.skip_init:
+            try:
+                dbsync.dbsync_init(mc)
+            except dbsync.DbSyncError as e:
+                print("Error: " + str(e))
+                return
 
         try:
             print("Trying to pull")
@@ -39,17 +59,40 @@ def main():
 
             print("Trying to push")
             dbsync.dbsync_push(mc)
-
-            # check mergin client token expiration
-            delta = mc._auth_session['expire'] - datetime.datetime.now(datetime.timezone.utc)
-            if delta.total_seconds() < 3600:
-                mc = dbsync.create_mergin_client()
-
         except dbsync.DbSyncError as e:
             print("Error: " + str(e))
+            return
 
-        print("Going to sleep")
-        time.sleep(sleep_time)
+    else:
+
+        if not args.skip_init:
+            try:
+                dbsync.dbsync_init(mc)
+            except dbsync.DbSyncError as e:
+                print("Error: " + str(e))
+                return
+
+        while True:
+
+            print(datetime.datetime.now())
+
+            try:
+                print("Trying to pull")
+                dbsync.dbsync_pull(mc)
+
+                print("Trying to push")
+                dbsync.dbsync_push(mc)
+
+                # check mergin client token expiration
+                delta = mc._auth_session['expire'] - datetime.datetime.now(datetime.timezone.utc)
+                if delta.total_seconds() < 3600:
+                    mc = dbsync.create_mergin_client()
+
+            except dbsync.DbSyncError as e:
+                print("Error: " + str(e))
+
+            print("Going to sleep")
+            time.sleep(sleep_time)
 
 
 if __name__ == '__main__':
