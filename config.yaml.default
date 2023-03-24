@@ -1,10 +1,9 @@
-working_dir: /tmp/dbsync
-geodiff_exe: geodiff
-
 mergin:
   url: https://app.merginmaps.com
   username: john
   password: mysecret
+
+init_from: gpkg
 
 connections:
    - driver: postgres
@@ -13,7 +12,7 @@ connections:
      base: mergin_base
      mergin_project: john/myproject
      sync_file: sync.gpkg
-     skip_tables:
+     skip_tables: []
 
 daemon:
   sleep_time: 10

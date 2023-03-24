@@ -26,15 +26,8 @@ def main():
     print("Logging in to Mergin...")
     mc = dbsync.create_mergin_client()
 
-    if len(sys.argv) == 2:
-        # optionally we can run initialization before starting the sync loop
-        cmd = sys.argv[1]
-        if cmd == '--init-from-gpkg':
-            dbsync.dbsync_init(mc, from_gpkg=True)
-        elif cmd == '--init-from-db':
-            dbsync.dbsync_init(mc, from_gpkg=False)
-        else:
-            raise ValueError("Unknown command line option: " + cmd)
+    # run initialization before starting the sync loop
+    dbsync.dbsync_init(mc)
 
     while True:
 

@@ -6,3 +6,4 @@ mergin
 htmlcov
 .vscode
 .env
+config.yaml
