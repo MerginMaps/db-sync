@@ -66,7 +66,15 @@ def validate_config(config):
 
 
 def get_ignored_tables(connection):
-    return connection.skip_tables if "skip_tables" in connection else []
+    if "skip_tables" in connection:
+        if connection.skip_tables is None:
+            return []
+        elif isinstance(connection.skip_tables, str):
+            return [connection.skip_tables]
+        elif isinstance(connection.skip_tables, list):
+            return connection.skip_tables
+    else:
+        return []
 
 
 def update_config_path(path_param: str) -> None:
