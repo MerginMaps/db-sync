@@ -21,7 +21,8 @@ def _reset_config():
         'MERGIN__USERNAME': API_USER,
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
-        'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg", "init_from": "gpkg"}]
+        'init_from': "gpkg",
+        'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg"}]
     })
 
 
@@ -32,6 +33,16 @@ def test_config():
 
     with pytest.raises(ConfigError, match="Config error: Incorrect mergin settings"):
         config.update({'MERGIN__USERNAME': None})
+        validate_config(config)
+
+    _reset_config()
+    with pytest.raises(ConfigError, match="Config error: Missing parameter `init_from` in the configuration"):
+        config.update({'init_from': None})
+        validate_config(config)
+
+    _reset_config()
+    with pytest.raises(ConfigError, match="Config error: `init_from` parameter must be either `gpkg` or `db`"):
+        config.update({'init_from': "anywhere"})
         validate_config(config)
 
     _reset_config()

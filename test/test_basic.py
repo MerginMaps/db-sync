@@ -82,9 +82,9 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
     # prepare dbsync config
     # patch config to fit testing purposes
     if ignored_tables:
-        connection = {"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg", "skip_tables":ignored_tables, "init_from": "gpkg"}
+        connection = {"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg", "skip_tables":ignored_tables}
     else:
-        connection = {"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg", "init_from": "gpkg"}
+        connection = {"driver": "postgres", "conn_info": DB_CONNINFO, "modified": db_schema_main, "base": db_schema_base, "mergin_project": full_project_name, "sync_file": "test_sync.gpkg"}
 
     config.update({
         'GEODIFF_EXE': GEODIFF_EXE,
@@ -93,6 +93,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
         'CONNECTIONS': [connection],
+        'init_from': "gpkg"
     })
 
     dbsync_init(mc)

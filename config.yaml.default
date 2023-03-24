@@ -3,10 +3,11 @@ mergin:
   username: john
   password: mysecret
 
+init_from: gpkg
+
 connections:
    - driver: postgres
      conn_info:
-     init_from: gpkg
      modified: mergin_main
      base: mergin_base
      mergin_project: john/myproject

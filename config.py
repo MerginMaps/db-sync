@@ -39,16 +39,19 @@ def validate_config(config):
     if not (config.connections and len(config.connections)):
         raise ConfigError("Config error: Connections list can not be empty")
 
+    if not config.init_from:
+        raise ConfigError("Config error: Missing parameter `init_from` in the configuration.")
+
+    if config.init_from not in ["gpkg", "db"]:
+        raise ConfigError(f"Config error: `init_from` parameter must be either `gpkg` or `db`. Current value is `{config.init_from}`.")
+
     for conn in config.connections:
-        for attr in ["driver", "conn_info", "init_from", "modified", "base", "mergin_project", "sync_file"]:
+        for attr in ["driver", "conn_info", "modified", "base", "mergin_project", "sync_file"]:
             if not hasattr(conn, attr):
                 raise ConfigError(f"Config error: Incorrect connection settings. Required parameter `{attr}` is missing.")
 
         if conn.driver != "postgres":
             raise ConfigError("Config error: Only 'postgres' driver is currently supported.")
-
-        if conn.init_from not in ["gpkg", "db"]:
-            raise ConfigError(f"Config error: `init_from` parameter must be either `gpkg` or `db`. Current value is `{conn.init_from}`.")
 
         if "/" not in conn.mergin_project:
             raise ConfigError("Config error: Name of the Mergin Maps project should be provided in the namespace/name format.")
