@@ -31,7 +31,7 @@ def validate_config(config):
     try:
         subprocess.run([config.geodiff_exe, "help"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except FileNotFoundError:
-        raise ConfigError("Config error: Geodiff executable not found. Is it installed and on available in `PATH` environmental variable?")
+        raise ConfigError("Config error: Geodiff executable not found. Is it installed and available in `PATH` environment variable?")
 
     if not (config.mergin.url and config.mergin.username and config.mergin.password):
         raise ConfigError("Config error: Incorrect mergin settings")
