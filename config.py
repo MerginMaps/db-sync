@@ -78,12 +78,12 @@ def get_ignored_tables(connection):
 
 
 def update_config_path(path_param: str) -> None:
-    config_file_path = pathlib.Path(path_param).absolute()
+    config_file_path = pathlib.Path(path_param)
 
     if config_file_path.exists():
         print(f"== Using {path_param} config file ==")
         user_file_config = Dynaconf(envvar_prefix=False,
-                                    settings_files=[config_file_path.absolute()])
+                                    settings_files=[config_file_path])
         config.update(user_file_config)
     else:
         raise IOError(f"Config file {config_file_path} does not exist.")
