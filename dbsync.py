@@ -63,6 +63,12 @@ def _check_has_sync_file(file_path):
         raise DbSyncError("The output GPKG file does not exist: " + file_path)
 
 
+def _drop_schema(conn, schema_name: str) -> None:
+    cur = conn.cursor()
+    cur.execute(sql.SQL("DROP SCHEMA IF EXIST {} CASCADE").format(sql.Identifier(schema_name)))
+    conn.commit()
+
+
 def _check_schema_exists(conn, schema_name):
     cur = conn.cursor()
     cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = %s)", (schema_name,))
@@ -595,7 +601,8 @@ def init(conn_cfg, mc, from_gpkg=True):
         # this is not a first run of db-sync init
         db_proj_info = _get_db_project_comment(conn, conn_cfg.base)
         if not db_proj_info:
-            raise DbSyncError("Base schema exists but missing which project it belongs to")
+            raise DbSyncError("Base schema exists but missing which project it belongs to. "
+                              f"This may be a result of a previously failed attempt to initialize DB sync. You can delete both schemas `{conn_cfg.base}` and `{conn_cfg.modified}` to fix this error and restart DB sync.")
         if "error" in db_proj_info:
             changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
                                                   conn_cfg.conn_info, conn_cfg.base, ignored_tables,
@@ -671,9 +678,11 @@ def init(conn_cfg, mc, from_gpkg=True):
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
         elif modified_schema_exists:
-            raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {conn_cfg.base}")
+            raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {conn_cfg.base}. "
+                              f"This may be a result of a previously failed attempt to initialize DB sync. You can delete schema `{conn_cfg.modified}` in the database to fix this error and restart DB sync.")
         elif base_schema_exists:
-            raise DbSyncError(f"The base schema exists but the modified schema is missing: {conn_cfg.modified}")
+            raise DbSyncError(f"The base schema exists but the modified schema is missing: {conn_cfg.modified}. "
+                              f"This may be a result of a previously failed attempt to initialize DB sync. You can delete schema `{conn_cfg.base}` in the database to fix this error and restart DB sync.")
 
         # initialize: we have an existing GeoPackage in our Mergin Maps project and we want to initialize database
         print("The base and modified schemas do not exist yet, going to initialize them ...")
@@ -699,22 +708,23 @@ def init(conn_cfg, mc, from_gpkg=True):
                 raise DbSyncError('Initialization of db-sync failed due to a bug in geodiff.\n '
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
-            # add comment to base schema before throwing exception
-            _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version,
-                                    error='Initialization of db-sync failed due to a bug in geodiff')
+            print(f"Cleaning up after a failed DB sync init - dropping schemas {conn_cfg.base} and {conn_cfg.modified}.")
+            _drop_schema(conn_cfg.base)
+            _drop_schema(conn_cfg.modified)
             raise
 
         _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version)
     else:
         if not modified_schema_exists:
-            raise DbSyncError("The 'modified' schema does not exist: " + conn_cfg.modified)
+            raise DbSyncError(f"The 'modified' schema does not exist: {conn_cfg.modified}. "
+                              "This schema is necessary if initialization should be done from database (parameter `init-from-db`).")
 
         if os.path.exists(gpkg_full_path) and base_schema_exists:
             # make sure output gpkg is in sync with db or fail
             summary_modified = _compare_datasets(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified,
-                                                "sqlite", "", gpkg_full_path, ignored_tables)
+                                                 "sqlite", "", gpkg_full_path, ignored_tables)
             summary_base = _compare_datasets(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base,
-                                            "sqlite", "", gpkg_full_path, ignored_tables)
+                                             "sqlite", "", gpkg_full_path, ignored_tables)
             if len(summary_base):
                 print(f"Local project version at {_get_project_version(work_dir)} and base schema at {db_proj_info['version']}")
                 _print_changes_summary(summary_base, "Base schema changes:")
@@ -755,8 +765,8 @@ def init(conn_cfg, mc, from_gpkg=True):
                 raise DbSyncError('Initialization of db-sync failed due to a bug in geodiff.\n '
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
-            _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version,
-                                    error='Initialization of db-sync failed due to a bug in geodiff')
+            print(f"Cleaning up after a failed DB sync init - dropping schema {conn_cfg.base}.")
+            _drop_schema(conn_cfg.base)
             raise
 
         # upload gpkg to Mergin Maps (client takes care of storing metadata)

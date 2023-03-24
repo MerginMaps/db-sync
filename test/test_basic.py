@@ -121,16 +121,6 @@ def test_init_from_gpkg(mc: MerginClient):
     assert db_proj_info["name"] == config.connections[0].mergin_project
     assert db_proj_info["version"] == 'v1'
 
-    # rename base schema to mimic some mismatch
-    cur.execute(sql.SQL("ALTER SCHEMA {} RENAME TO schema_tmp").format(sql.Identifier(db_schema_base)).as_string(conn))
-    conn.commit()
-    with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc)
-    assert "The 'modified' schema exists but the base schema is missing" in str(err.value)
-    # and revert back
-    cur.execute(sql.SQL("ALTER SCHEMA schema_tmp RENAME TO {}").format(sql.Identifier(db_schema_base)).as_string(conn))
-    conn.commit()
-
     # make change in GPKG and push to server to create pending changes, it should pass but not sync
     shutil.copy(os.path.join(TEST_DATA_DIR, 'inserted_1_A.gpkg'), os.path.join(project_dir, 'test_sync.gpkg'))
     mc.push_project(project_dir)
@@ -440,6 +430,7 @@ def test_recreated_project_ids(mc: MerginClient):
     with pytest.raises(DbSyncError):
         dbsync_status(mc)
 
+
 @pytest.mark.parametrize("project_name", ['test_init_1', 'Test_Init_2', "Test 3", "Test-4"])
 def test_project_names(mc: MerginClient, project_name: str):
     source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
@@ -487,3 +478,74 @@ def test_project_names(mc: MerginClient, project_name: str):
     assert gpkg_cur.fetchone()[3] == 100
     db_proj_info = _get_db_project_comment(conn, db_schema_base)
     assert db_proj_info["version"] == 'v3'
+
+
+def test_init_from_gpkg_missing_schema(mc: MerginClient):
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
+    project_name = "test_init_missing_schema"
+    db_schema_base = project_name + "_base"
+    db_schema_main = project_name + "_main"
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    conn = psycopg2.connect(DB_CONNINFO)
+    cur = conn.cursor()
+
+    # drop base schema to mimic some mismatch
+    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(db_schema_base)))
+    conn.commit()
+
+    # check that removed schema does not exists
+    cur.execute(f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_base}'")
+    cur.fetchone() is None
+
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc)
+    assert "The 'modified' schema exists but the base schema is missing" in str(err.value)
+    assert "This may be a result of a previously failed attempt to initialize DB sync" in str(err.value)
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    # drop main schema to mimic some mismatch
+    cur.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(db_schema_main)))
+    conn.commit()
+
+    # check that removed schema does not exists
+    cur.execute(f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{db_schema_main}'")
+    cur.fetchone() is None
+
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc)
+    assert "The base schema exists but the modified schema is missing" in str(err.value)
+    assert "This may be a result of a previously failed attempt to initialize DB sync" in str(err.value)
+
+
+def test_init_from_gpkg_missing_comment(mc: MerginClient):
+    project_name = "test_init_missing_comment"
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
+    schema_name = project_name + "_base"
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    conn = psycopg2.connect(DB_CONNINFO)
+    cur = conn.cursor()
+
+    # sql query for schema
+    sql_cmd = f"SELECT schema_name FROM information_schema.schemata WHERE schema_name = '{schema_name}'"
+
+    # check that schema exists
+    cur.execute(sql_cmd)
+    cur.fetchone()[0] == schema_name
+
+    # drop base schema to mimic some mismatch
+    query = sql.SQL("COMMENT ON SCHEMA {} IS %s").format(sql.Identifier(schema_name))
+    cur.execute(query.as_string(conn), ("",))
+    conn.commit()
+
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc)
+    assert "Base schema exists but missing which project it belongs to" in str(err.value)
+
+    # check that schema does not exists anymore
+    cur.execute(sql_cmd)
+    cur.fetchone() is None
