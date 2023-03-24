@@ -63,3 +63,13 @@ def validate_config(config):
 
 def get_ignored_tables(connection):
     return connection.skip_tables if "skip_tables" in connection else []
+
+
+def update_config_path(path_param: str) -> None:
+    config_file_path = pathlib.Path(path_param).absolute()
+
+    if config_file_path.exists():
+        print(f"== Using {path_param} config file ==")
+        config.settings_files = [config_file_path.absolute()]
+    else:
+        raise IOError(f"Config file {config_file_path} does not exist.")
