@@ -50,7 +50,7 @@ def main():
             try:
                 dbsync.dbsync_init(mc)
             except dbsync.DbSyncError as e:
-                print("Error: " + str(e))
+                print("Error: " + str(e), file=sys.stderr)
                 return
 
         try:
@@ -60,7 +60,7 @@ def main():
             print("Trying to push")
             dbsync.dbsync_push(mc)
         except dbsync.DbSyncError as e:
-            print("Error: " + str(e))
+            print("Error: " + str(e), file=sys.stderr)
             return
 
     else:
@@ -69,7 +69,7 @@ def main():
             try:
                 dbsync.dbsync_init(mc)
             except dbsync.DbSyncError as e:
-                print("Error: " + str(e))
+                print("Error: " + str(e), file=sys.stderr)
                 return
 
         while True:
@@ -89,7 +89,7 @@ def main():
                     mc = dbsync.create_mergin_client()
 
             except dbsync.DbSyncError as e:
-                print("Error: " + str(e))
+                print("Error: " + str(e), file=sys.stderr)
 
             print("Going to sleep")
             time.sleep(sleep_time)
