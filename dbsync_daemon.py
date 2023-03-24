@@ -21,7 +21,7 @@ def main():
                                      epilog='www.merginmaps.com')
 
     parser.add_argument("config_file", nargs="?", default="config.yaml", help="Path to file with configuration. Default value is config.yaml in current working directory.")
-    parser.add_argument("--skip-init", action="store_true", help="Skip DB Sync init step.")
+    parser.add_argument("--skip-init", action="store_true", help="Skip DB sync init step to make the tool start faster. It is not recommend to use it unless you are really sure you can skip the initial sanity checks.")
     parser.add_argument("--single-run", action="store_true", help="Run just once performing single pull and push operation, instead of running in infinite loop.")
 
     args = parser.parse_args()
