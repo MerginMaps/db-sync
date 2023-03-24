@@ -500,7 +500,7 @@ def test_init_from_gpkg_missing_schema(mc: MerginClient):
     cur.fetchone() is None
 
     with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
+        dbsync_init(mc)
     assert "The 'modified' schema exists but the base schema is missing" in str(err.value)
     assert "This may be a result of a previously failed attempt to initialize DB sync" in str(err.value)
 
@@ -515,7 +515,7 @@ def test_init_from_gpkg_missing_schema(mc: MerginClient):
     cur.fetchone() is None
 
     with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
+        dbsync_init(mc)
     assert "The base schema exists but the modified schema is missing" in str(err.value)
     assert "This may be a result of a previously failed attempt to initialize DB sync" in str(err.value)
 
@@ -543,7 +543,7 @@ def test_init_from_gpkg_missing_comment(mc: MerginClient):
     conn.commit()
 
     with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
+        dbsync_init(mc)
     assert "Base schema exists but missing which project it belongs to" in str(err.value)
 
     # check that schema does not exists anymore
