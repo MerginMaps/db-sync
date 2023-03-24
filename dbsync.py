@@ -777,9 +777,9 @@ def init(conn_cfg, mc, from_gpkg=True):
         _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
 
 
-def dbsync_init(mc, from_gpkg=True):
+def dbsync_init(mc):
     for conn in config.connections:
-        init(conn, mc, from_gpkg)
+        init(conn, mc, from_gpkg=config.init_from)
 
     print("Init done!")
 
@@ -830,12 +830,9 @@ def main():
         print("Logging in to Mergin Maps...")
         mc = create_mergin_client()
 
-        if sys.argv[1] == 'init-from-gpkg':
-            print("Initializing from an existing GeoPackage...")
-            dbsync_init(mc, True)
-        elif sys.argv[1] == 'init-from-db':
-            print("Initializing from an existing DB schema...")
-            dbsync_init(mc, False)
+        if sys.argv[1] == 'init':
+            print("Initializing ...")
+            dbsync_init(mc)
         elif sys.argv[1] == 'status':
             dbsync_status(mc)
         elif sys.argv[1] == 'push':

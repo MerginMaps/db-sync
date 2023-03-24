@@ -21,8 +21,7 @@ def _reset_config():
         'MERGIN__USERNAME': API_USER,
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
-        'WORKING_DIR': "/tmp/working_project",
-        'GEODIFF_EXE': "geodiff",
+        'init_from': "gpkg",
         'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg"}]
     })
 
@@ -37,13 +36,13 @@ def test_config():
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(ConfigError, match="Config error: Working directory is not set"):
-        config.update({'WORKING_DIR': None})
+    with pytest.raises(ConfigError, match="Config error: Missing parameter `init_from` in the configuration"):
+        config.update({'init_from': None})
         validate_config(config)
 
     _reset_config()
-    with pytest.raises(ConfigError, match="Config error: Path to geodiff executable is not set"):
-        config.update({'GEODIFF_EXE': None})
+    with pytest.raises(ConfigError, match="Config error: `init_from` parameter must be either `gpkg` or `db`"):
+        config.update({'init_from': "anywhere"})
         validate_config(config)
 
     _reset_config()
@@ -58,16 +57,10 @@ def test_config():
 
     _reset_config()
     with pytest.raises(ConfigError, match="Config error: Only 'postgres' driver is currently supported."):
-        config.update({'CONNECTIONS': [{"driver": "oracle", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg"}]})
+        config.update({'CONNECTIONS': [{"driver": "oracle", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg", "init_from": "gpkg"}]})
         validate_config(config)
 
     _reset_config()
     with pytest.raises(ConfigError, match="Config error: Name of the Mergin Maps project should be provided in the namespace/name format."):
-        config.update({'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "dbsync", "sync_file": "sync.gpkg"}]})
+        config.update({'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "dbsync", "sync_file": "sync.gpkg", "init_from": "gpkg"}]})
         validate_config(config)
-
-    _reset_config()
-    with pytest.raises(ConfigError, match="Config error: Ignored tables parameter should be a list"):
-        config.update({'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg", "skip_tables":""}]})
-        validate_config(config)
-

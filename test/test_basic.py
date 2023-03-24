@@ -93,9 +93,10 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
         'MERGIN__PASSWORD': USER_PWD,
         'MERGIN__URL': SERVER_URL,
         'CONNECTIONS': [connection],
+        'init_from': "gpkg"
     })
 
-    dbsync_init(mc, from_gpkg=True)
+    dbsync_init(mc)
 
 
 def test_init_from_gpkg(mc: MerginClient):
@@ -113,7 +114,7 @@ def test_init_from_gpkg(mc: MerginClient):
     cur.execute(sql.SQL("SELECT count(*) from {}.simple").format(sql.Identifier(db_schema_main)).as_string(conn))
     assert cur.fetchone()[0] == 3
     # run again, nothing should change
-    dbsync_init(mc, from_gpkg=True)
+    dbsync_init(mc)
     cur.execute(sql.SQL("SELECT count(*) from {}.simple").format(sql.Identifier(db_schema_main)).as_string(conn))
     assert cur.fetchone()[0] == 3
     db_proj_info = _get_db_project_comment(conn, db_schema_base)
@@ -125,7 +126,7 @@ def test_init_from_gpkg(mc: MerginClient):
     mc.push_project(project_dir)
     #  remove local copy of project (to mimic loss at docker restart)
     shutil.rmtree(config.working_dir)
-    dbsync_init(mc, from_gpkg=True)
+    dbsync_init(mc)
     cur.execute(sql.SQL("SELECT count(*) from {}.simple").format(sql.Identifier(db_schema_main)).as_string(conn))
     assert cur.fetchone()[0] == 3
     db_proj_info = _get_db_project_comment(conn, db_schema_base)
@@ -135,7 +136,7 @@ def test_init_from_gpkg(mc: MerginClient):
     shutil.rmtree(config.working_dir)
     mc.download_project(config.connections[0].mergin_project, config.working_dir, 'v2')
     # run init again, it should handle local working dir properly (e.g. download correct version) and pass but not sync
-    dbsync_init(mc, from_gpkg=True)
+    dbsync_init(mc)
     db_proj_info = _get_db_project_comment(conn, db_schema_base)
     assert db_proj_info["version"] == 'v1'
 
@@ -154,7 +155,7 @@ def test_init_from_gpkg(mc: MerginClient):
     conn.commit()
     cur.execute(sql.SQL("SELECT * from {}.simple WHERE fid=%s").format(sql.Identifier(db_schema_main)), (fid,))
     assert cur.fetchone()[3] == 100
-    dbsync_init(mc, from_gpkg=True)
+    dbsync_init(mc)
     # check geopackage has not been modified - after init we are not synced!
     gpkg_conn = sqlite3.connect(os.path.join(project_dir, 'test_sync.gpkg'))
     gpkg_cur = gpkg_conn.cursor()
@@ -177,13 +178,13 @@ def test_init_from_gpkg(mc: MerginClient):
     cur.execute(sql.SQL("SELECT * from {}.simple WHERE fid=%s").format(sql.Identifier(db_schema_base)), (fid,))
     assert cur.fetchone()[3] == 100
     with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
+        dbsync_init(mc)
     assert "The db schemas already exist but 'base' schema is not synchronized with source GPKG" in str(err.value)
 
     # make local changes to src file to introduce local changes
     shutil.copy(os.path.join(TEST_DATA_DIR, 'base.gpkg'), os.path.join(config.working_dir, project_name, config.connections[0].sync_file))
     with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc, from_gpkg=True)
+        dbsync_init(mc)
     assert "There are pending changes in the local directory - that should never happen" in str(err.value)
 
 
@@ -196,7 +197,7 @@ def test_init_from_gpkg_with_incomplete_dir(mc: MerginClient):
     shutil.rmtree(init_project_dir)  # Remove dir with content
     os.makedirs(init_project_dir)  # Recreate empty project working dir
     assert os.listdir(init_project_dir) == []
-    dbsync_init(mc, from_gpkg=True)
+    dbsync_init(mc)
     assert set(os.listdir(init_project_dir)) == set(['test_sync.gpkg', '.mergin'])
 
 
@@ -358,7 +359,7 @@ def test_init_with_skip(mc: MerginClient):
     assert cur.fetchone()[0] == 0
 
     # run again, nothing should change
-    dbsync_init(mc, from_gpkg=True)
+    dbsync_init(mc)
     cur.execute(sql.SQL("SELECT EXISTS (SELECT FROM pg_tables WHERE  schemaname = '{}' AND tablename = 'lines');").format(sql.Identifier(db_schema_main)))
     assert cur.fetchone()[0] == False
     cur.execute(sql.SQL("SELECT count(*) from {}.points").format(sql.Identifier(db_schema_main)))
@@ -464,7 +465,7 @@ def test_project_names(mc: MerginClient, project_name: str):
     conn.commit()
     cur.execute(sql.SQL("SELECT * from {}.simple WHERE fid=%s").format(sql.Identifier(db_schema_main)), (fid,))
     assert cur.fetchone()[3] == 100
-    dbsync_init(mc, from_gpkg=True)
+    dbsync_init(mc)
     # check geopackage has not been modified - after init we are not synced!
     gpkg_conn = sqlite3.connect(os.path.join(project_dir, 'test_sync.gpkg'))
     gpkg_cur = gpkg_conn.cursor()
