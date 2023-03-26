@@ -26,13 +26,13 @@ def main():
 
     args = parser.parse_args()
 
+    print(f"== starting mergin-db-sync daemon == version {__version__} ==")
+
     try:
         update_config_path(args.config_file)
     except IOError as e:
         print("Error: " + str(e), file=sys.stderr)
         sys.exit(1)
-
-    print(f"== starting mergin-db-sync daemon == version {__version__} ==")
 
     sleep_time = config.as_int("daemon.sleep_time")
     try:

@@ -39,7 +39,7 @@ def validate_config(config):
     if not (config.connections and len(config.connections)):
         raise ConfigError("Config error: Connections list can not be empty")
 
-    if not config.init_from:
+    if "init_from" not in config:
         raise ConfigError("Config error: Missing parameter `init_from` in the configuration.")
 
     if config.init_from not in ["gpkg", "db"]:
@@ -81,7 +81,7 @@ def update_config_path(path_param: str) -> None:
     config_file_path = pathlib.Path(path_param)
 
     if config_file_path.exists():
-        print(f"== Using {path_param} config file ==")
+        print(f"Using config file: {path_param}")
         user_file_config = Dynaconf(envvar_prefix=False,
                                     settings_files=[config_file_path])
         config.update(user_file_config)
