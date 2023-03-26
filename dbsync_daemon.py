@@ -29,8 +29,8 @@ def main():
     try:
         update_config_path(args.config_file)
     except IOError as e:
-        print("Error: " + str(e))
-        exit(1)
+        print("Error: " + str(e), file=sys.stderr)
+        sys.exit(1)
 
     print(f"== starting mergin-db-sync daemon == version {__version__} ==")
 
@@ -38,8 +38,8 @@ def main():
     try:
         validate_config(config)
     except ConfigError as e:
-        print("Error: " + str(e))
-        exit(1)
+        print("Error: " + str(e), file=sys.stderr)
+        sys.exit(1)
 
     print("Logging in to Mergin...")
     mc = dbsync.create_mergin_client()
@@ -51,7 +51,7 @@ def main():
                 dbsync.dbsync_init(mc)
             except dbsync.DbSyncError as e:
                 print("Error: " + str(e), file=sys.stderr)
-                exit(1)
+                sys.exit(1)
 
         try:
             print("Trying to pull")
@@ -61,7 +61,7 @@ def main():
             dbsync.dbsync_push(mc)
         except dbsync.DbSyncError as e:
             print("Error: " + str(e), file=sys.stderr)
-            exit(1)
+            sys.exit(1)
 
     else:
 
@@ -70,7 +70,7 @@ def main():
                 dbsync.dbsync_init(mc)
             except dbsync.DbSyncError as e:
                 print("Error: " + str(e), file=sys.stderr)
-                exit(1)
+                sys.exit(1)
 
         while True:
 
