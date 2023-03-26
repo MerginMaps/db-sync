@@ -37,7 +37,7 @@ def test_config():
 
     _reset_config()
     with pytest.raises(ConfigError, match="Config error: Missing parameter `init_from` in the configuration"):
-        config.update({'init_from': None})
+        del config['init_from']
         validate_config(config)
 
     _reset_config()
