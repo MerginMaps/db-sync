@@ -778,8 +778,9 @@ def init(conn_cfg, mc, from_gpkg=True):
 
 
 def dbsync_init(mc):
+    from_gpkg = config.init_from.lower() == "gpkg"
     for conn in config.connections:
-        init(conn, mc, from_gpkg=config.init_from)
+        init(conn, mc, from_gpkg=from_gpkg)
 
     print("Init done!")
 
