@@ -709,8 +709,8 @@ def init(conn_cfg, mc, from_gpkg=True):
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
             print(f"Cleaning up after a failed DB sync init - dropping schemas {conn_cfg.base} and {conn_cfg.modified}.")
-            _drop_schema(conn_cfg.base)
-            _drop_schema(conn_cfg.modified)
+            _drop_schema(conn, conn_cfg.base)
+            _drop_schema(conn, conn_cfg.modified)
             raise
 
         _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, local_version)
@@ -766,7 +766,7 @@ def init(conn_cfg, mc, from_gpkg=True):
                                   'Please report this problem to mergin-db-sync developers')
         except DbSyncError:
             print(f"Cleaning up after a failed DB sync init - dropping schema {conn_cfg.base}.")
-            _drop_schema(conn_cfg.base)
+            _drop_schema(conn, conn_cfg.base)
             raise
 
         # upload gpkg to Mergin Maps (client takes care of storing metadata)
