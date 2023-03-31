@@ -17,6 +17,7 @@ import tempfile
 import random
 import uuid
 import re
+import pathlib
 
 import psycopg2
 from itertools import chain
@@ -801,3 +802,32 @@ def dbsync_push(mc):
 def dbsync_status(mc):
     for conn in config.connections:
         status(conn, mc)
+
+
+def clean(conn_cfg, mc):
+    from_db = config.init_from.lower() == "db"
+
+    if pathlib.Path(config.working_dir).exists():
+        try:
+            shutil.rmtree(config.working_dir)
+        except FileNotFoundError as e:
+            raise DbSyncError("Unable to remove working directory: " + str(e))
+
+    try:
+        conn_db = psycopg2.connect(conn_cfg.conn_info)
+    except psycopg2.Error as e:
+        raise DbSyncError("Unable to connect to the database: " + str(e))
+
+    try:
+        _drop_schema(conn_db, conn_cfg.base)
+
+        if not from_db:
+            _drop_schema(conn_db, conn_cfg.modified)
+
+    except psycopg2.Error as e:
+        raise DbSyncError("Unable to drop schema from database: " + str(e))
+
+
+def dbsync_clean(mc):
+    for conn in config.connections:
+        clean(conn, mc)
