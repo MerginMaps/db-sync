@@ -582,6 +582,9 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
 
     conn = psycopg2.connect(DB_CONNINFO)
 
+    # we can run clean even before init
+    dbsync_clean(mc)
+
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
 
     con = sqlite3.connect(os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
@@ -589,6 +592,7 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
     cur.execute("ALTER TABLE simple ADD COLUMN \"new_field\" TEXT;")
     con.close()
 
+    # after changes to GPKG we can no longer push or init again
     with pytest.raises(DbSyncError) as err:
         dbsync_push(mc)
     assert "There are pending changes in the local directory - that should never happen!" in str(err.value)
@@ -597,7 +601,7 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
         dbsync_init(mc)
     assert "There are pending changes in the local directory - that should never happen!" in str(err.value)
 
-    # prior to dbsync_clean everything exists 
+    # prior to dbsync_clean everything exists
     assert _check_schema_exists(conn, db_schema_base)
     assert _check_schema_exists(conn, db_schema_main)
     assert pathlib.Path(config.working_dir).exists()
