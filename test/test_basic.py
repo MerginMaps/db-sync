@@ -586,11 +586,15 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
 
     con = sqlite3.connect(os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
     cur = con.cursor()
-    cur.execute("CREATE TABLE new_table(\"fid\"	INTEGER NOT NULL, \"geometry\" POINT);")
     cur.execute("ALTER TABLE simple ADD COLUMN \"new_field\" TEXT;")
+    con.close()
 
     with pytest.raises(DbSyncError) as err:
         dbsync_push(mc)
+    assert "There are pending changes in the local directory - that should never happen!" in str(err.value)
+
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc)
     assert "There are pending changes in the local directory - that should never happen!" in str(err.value)
 
     # prior to dbsync_clean everything exists 
@@ -607,3 +611,6 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
 
     # make sure that running the clean second time does not cause issue
     dbsync_clean(mc)
+
+    # after clean we can init
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
