@@ -6,6 +6,7 @@ import shutil
 import sqlite3
 import tempfile
 import pathlib
+import sqlite3
 
 import psycopg2
 from psycopg2 import sql
@@ -582,6 +583,15 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
     conn = psycopg2.connect(DB_CONNINFO)
 
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    con = sqlite3.connect(os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
+    cur = con.cursor()
+    cur.execute("CREATE TABLE new_table(\"fid\"	INTEGER NOT NULL, \"geometry\" POINT);")
+    cur.execute("ALTER TABLE simple ADD COLUMN \"new_field\" TEXT;")
+
+    with pytest.raises(DbSyncError) as err:
+        dbsync_push(mc)
+    assert "There are pending changes in the local directory - that should never happen!" in str(err.value)
 
     # prior to dbsync_clean everything exists 
     assert _check_schema_exists(conn, db_schema_base)
