@@ -66,7 +66,7 @@ def _check_has_sync_file(file_path):
 
 def _drop_schema(conn, schema_name: str) -> None:
     cur = conn.cursor()
-    cur.execute(sql.SQL("DROP SCHEMA IF EXIST {} CASCADE").format(sql.Identifier(schema_name)))
+    cur.execute(sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(schema_name)))
     conn.commit()
 
 
