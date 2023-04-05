@@ -813,6 +813,22 @@ def clean(conn_cfg, mc):
         except FileNotFoundError as e:
             raise DbSyncError("Unable to remove working directory: " + str(e))
 
+    if from_db:
+        temp_folder = pathlib.Path(config.working_dir).parent / "project_to_delete_sync_file"
+        try:
+            # to remove sync file, download project to created directory, drop file and push changes back
+            file = temp_folder / conn_cfg.sync_file
+            mc.download_project(conn_cfg.mergin_project, str(temp_folder))
+            if file.exists():
+                file.unlink()
+            mc.push_project(str(temp_folder))
+        except Exception as e:
+            raise DbSyncError("Error removing sync file from MM project:" + str(e))
+        finally:
+            # delete the temp_folder no matter what if it exist
+            if temp_folder.exists():
+                shutil.rmtree(temp_folder)
+
     try:
         conn_db = psycopg2.connect(conn_cfg.conn_info)
     except psycopg2.Error as e:
@@ -831,3 +847,5 @@ def clean(conn_cfg, mc):
 def dbsync_clean(mc):
     for conn in config.connections:
         clean(conn, mc)
+
+    print("Cleaning done!")
