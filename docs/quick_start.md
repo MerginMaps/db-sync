@@ -7,6 +7,8 @@ In this quick start guide you will set up synchronization between your PostGIS d
 - PostGIS database
 - docker engine
 
+If you are on Windows and do not have Docker installed, you can consider [installing it in Windows Subsystem for Linux](./install_wsl.md).
+
 ## 1. Add data to DB
 Create a new schema (`sync_data`) in your postgis database (here `db-sync`) with few points.
 You can simply use this [file](../sample_data/test_data.sql) and run:
