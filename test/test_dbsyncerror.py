@@ -3,21 +3,19 @@ import pytest
 from dbsync import DbSyncError
 
 
-def test_DbSyncError_password_print():
-    password = "my_secret password 8417\\.*/"
-    with pytest.raises(DbSyncError) as err:
-        raise DbSyncError(f"string1 password=\"{password}\" string2")
-    assert password not in str(err)
-    assert DbSyncError.default_print_password in str(err)
+@pytest.mark.parametrize("password", ['password=\"my_secret password 8417\\.\"',
+                                      'password=\'my_secret password\'',
+                                      "password=my_secret_password84189./+-"
+                                      ])
+def test_DbSyncError_password_print(password: str):
+    host = "host=\"localhost\""
+    user = "user=user"
 
-    password = "my_secret password"
-    with pytest.raises(DbSyncError) as err:
-        raise DbSyncError(f"string1 password=\'{password}\' string2")
-    assert password not in str(err)
-    assert DbSyncError.default_print_password in str(err)
+    conn_string = f"{user} {password} {host}"
 
-    password = "my_secret_password84189./+-"
     with pytest.raises(DbSyncError) as err:
-        raise DbSyncError(f"string1 password={password} string2")
+        raise DbSyncError(conn_string)
     assert password not in str(err)
-    assert DbSyncError.default_print_password in str(err)
+    assert user in str(err)
+    assert host in str(err)
+    assert DbSyncError.default_print_password in str(err.value)
