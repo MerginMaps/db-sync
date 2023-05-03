@@ -4,6 +4,7 @@ import tempfile
 import shutil
 
 import psycopg2
+import psycopg2.extensions
 from psycopg2 import sql
 
 from mergin import MerginClient, ClientError
@@ -129,5 +130,5 @@ def mc():
 
 
 @pytest.fixture(scope='function')
-def db_connection() -> psycopg2.connection:
+def db_connection() -> psycopg2.extensions.connection:
     return psycopg2.connect(DB_CONNINFO)

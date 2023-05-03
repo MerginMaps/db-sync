@@ -19,8 +19,9 @@ import uuid
 import re
 
 import psycopg2
-from itertools import chain
+import psycopg2.extensions
 from psycopg2 import sql
+from itertools import chain
 
 from mergin import MerginClient, MerginProject, LoginError, ClientError, InvalidProject
 from version import __version__
@@ -75,7 +76,7 @@ def _check_schema_exists(conn, schema_name):
     return cur.fetchone()[0]
 
 
-def _check_postgis_available(conn: psycopg2.connection) -> bool:
+def _check_postgis_available(conn: psycopg2.extensions.connection) -> bool:
     cur = conn.cursor()
     cur.execute("SELECT extname FROM pg_extension;")
     try:
@@ -88,7 +89,7 @@ def _check_postgis_available(conn: psycopg2.connection) -> bool:
         return False
 
 
-def _try_install_postgis(conn: psycopg2.connection) -> bool:
+def _try_install_postgis(conn: psycopg2.extensions.connection) -> bool:
     cur = conn.cursor()
     try:
         cur.execute("CREATE EXTENSION postgis;")
