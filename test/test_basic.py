@@ -625,4 +625,8 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
 
     # after clean we can init
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    # test that after clean everything works
+    dbsync_init(mc)
     dbsync_pull(mc)
+    dbsync_push(mc)
