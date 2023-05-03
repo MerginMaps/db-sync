@@ -126,3 +126,8 @@ def mc():
     assert SERVER_URL and API_USER and USER_PWD
     #assert SERVER_URL and SERVER_URL.rstrip('/') != 'https://app.merginmaps.com/' and API_USER and USER_PWD
     return MerginClient(SERVER_URL, login=API_USER, password=USER_PWD)
+
+
+@pytest.fixture(scope='function')
+def db_connection() -> psycopg2.connection:
+    return psycopg2.connect(DB_CONNINFO)
