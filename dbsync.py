@@ -36,7 +36,7 @@ class DbSyncError(Exception):
 
     def __init__(self, message):
         # escaped password
-        message = re.sub(r'password=[\"\'].+[\"\']', self.default_print_password, message)
+        message = re.sub(r'password=[\"\'].+[\"\'](?=\s)', self.default_print_password, message)
         # not escaped password
         message = re.sub(r'password=\S+', self.default_print_password, message)
         super().__init__(message)
