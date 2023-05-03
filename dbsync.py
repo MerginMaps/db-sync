@@ -75,6 +75,28 @@ def _check_schema_exists(conn, schema_name):
     return cur.fetchone()[0]
 
 
+def _check_postgis_available(conn: psycopg2.connection) -> bool:
+    cur = conn.cursor()
+    cur.execute("SELECT extname FROM pg_extension;")
+    try:
+        result = cur.fetchall()
+        for row in result:
+            if row[0].lower() == "postgis":
+                return True
+        return False
+    except psycopg2.ProgrammingError:
+        return False
+
+
+def _try_install_postgis(conn: psycopg2.connection) -> bool:
+    cur = conn.cursor()
+    try:
+        cur.execute("CREATE EXTENSION postgis;")
+        return True
+    except psycopg2.ProgrammingError:
+        return False
+
+
 def _check_has_password():
     """ Checks whether we have password for Mergin Maps user - if not, we will ask for it """
     if config.mergin.password is None:
