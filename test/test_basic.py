@@ -587,19 +587,21 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
 
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
 
+    # edit sync GPKG and push to server
     con = sqlite3.connect(os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
     cur = con.cursor()
     cur.execute("ALTER TABLE simple ADD COLUMN \"new_field\" TEXT;")
     con.close()
+    mc.push_project(os.path.join(sync_project_dir, project_name))
 
-    # after changes to GPKG we can no longer push or init again
-    with pytest.raises(DbSyncError) as err:
-        dbsync_push(mc)
-    assert "There are pending changes in the local directory - that should never happen!" in str(err.value)
+    # replace it locally back with previous version - so there is mismatch, on server there is a column, that does not exist locally
+    os.remove(os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
+    shutil.copy(source_gpkg_path, os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
 
+    # try to pull, causing geodiff failed error
     with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc)
-    assert "There are pending changes in the local directory - that should never happen!" in str(err.value)
+        dbsync_pull(mc)
+    assert "geodiff failed" in str(err.value)
 
     # prior to dbsync_clean everything exists
     assert _check_schema_exists(conn, db_schema_base)
@@ -618,3 +620,4 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
 
     # after clean we can init
     init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+    dbsync_pull(mc)
