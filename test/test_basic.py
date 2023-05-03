@@ -601,9 +601,11 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
     os.remove(os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
     shutil.copy(source_gpkg_path, os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
 
-    # try to pull, causing geodiff failed error
+    # try init then pull and push, causing geodiff failed error
     with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc)
         dbsync_pull(mc)
+        dbsync_push(mc)
     assert "geodiff failed" in str(err.value)
 
     # prior to dbsync_clean everything exists
