@@ -591,6 +591,9 @@ def test_dbsync_clean_from_gpkg(mc: MerginClient):
     con = sqlite3.connect(os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
     cur = con.cursor()
     cur.execute("ALTER TABLE simple ADD COLUMN \"new_field\" TEXT;")
+    cur.execute("CREATE TABLE new_table (id INTEGER PRIMARY KEY, number INTEGER DEFAULT 0);")
+    cur.execute("INSERT INTO new_table (number) VALUES (99);")
+    con.commit()
     con.close()
     mc.push_project(os.path.join(sync_project_dir, project_name))
 
