@@ -613,6 +613,11 @@ def init(conn_cfg, mc, from_gpkg=True):
     except psycopg2.Error as e:
         raise DbSyncError("Unable to connect to the database: " + str(e))
 
+    if conn_cfg.driver.lower() == "postgres":
+        if not _check_postgis_available(conn):
+            if not _try_install_postgis(conn):
+                raise DbSyncError("Cannot find or activate `postgis` extension. You may need to install it.")
+
     base_schema_exists = _check_schema_exists(conn, conn_cfg.base)
     modified_schema_exists = _check_schema_exists(conn, conn_cfg.modified)
 
