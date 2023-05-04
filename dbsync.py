@@ -33,7 +33,14 @@ os.environ["GEODIFF_LOGGER_LEVEL"] = '4'   # 0 = nothing, 1 = errors, 2 = warnin
 
 
 class DbSyncError(Exception):
-    pass
+    default_print_password = "password='*****'"
+
+    def __init__(self, message):
+        # escaped password
+        message = re.sub(r'password=[\"\'].+[\"\'](?=\s)', self.default_print_password, message)
+        # not escaped password
+        message = re.sub(r'password=\S+', self.default_print_password, message)
+        super().__init__(message)
 
 
 def _add_quotes_to_schema_name(schema: str) -> str:
