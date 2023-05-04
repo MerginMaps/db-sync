@@ -613,7 +613,7 @@ def init(conn_cfg, mc, from_gpkg=True):
         if not db_proj_info:
             raise DbSyncError("Base schema exists but missing which project it belongs to. "
                               "This may be a result of a previously failed attempt to initialize DB sync. "
-                              FORCE_INIT_MESSAGE)
+                              f"{FORCE_INIT_MESSAGE}")
         if "error" in db_proj_info:
             changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
                                                   conn_cfg.conn_info, conn_cfg.base, ignored_tables,
@@ -639,7 +639,7 @@ def init(conn_cfg, mc, from_gpkg=True):
                 local_project_id = _get_project_id(mp)
                 if (db_project_id and local_project_id) and (db_project_id != local_project_id):
                     raise DbSyncError("Database project ID doesn't match local project ID. "
-                                      FORCE_INIT_MESSAGE)
+                                      f"{FORCE_INIT_MESSAGE}")
                 if local_version != db_proj_info["version"]:
                     _redownload_project(conn_cfg, mc, work_dir, db_proj_info)
             except InvalidProject as e:
@@ -666,7 +666,7 @@ def init(conn_cfg, mc, from_gpkg=True):
         print("There are pending changes on server, please run pull command after init")
     if status_push['added'] or status_push['updated'] or status_push['removed']:
         raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push) + " " +
-                          FORCE_INIT_MESSAGE)
+                          f"{FORCE_INIT_MESSAGE}")
 
     if from_gpkg:
         if not os.path.exists(gpkg_full_path):
@@ -683,7 +683,7 @@ def init(conn_cfg, mc, from_gpkg=True):
                 print(f"Local project version at {local_version} and base schema at {db_proj_info['version']}")
                 _print_changes_summary(summary_base, "Base schema changes:")
                 raise DbSyncError("The db schemas already exist but 'base' schema is not synchronized with source GPKG. "
-                                  FORCE_INIT_MESSAGE)
+                                  f"{FORCE_INIT_MESSAGE}")
             elif len(summary_modified):
                 print("Modified schema is not synchronised with source GPKG, please run pull/push commands to fix it")
                 _print_changes_summary(summary_modified, "Pending Changes:")
@@ -694,11 +694,11 @@ def init(conn_cfg, mc, from_gpkg=True):
         elif modified_schema_exists:
             raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {conn_cfg.base}. "
                               "This may be a result of a previously failed attempt to initialize DB sync. "
-                              FORCE_INIT_MESSAGE)
+                              f"{FORCE_INIT_MESSAGE}")
         elif base_schema_exists:
             raise DbSyncError(f"The base schema exists but the modified schema is missing: {conn_cfg.modified}. "
                               "This may be a result of a previously failed attempt to initialize DB sync. "
-                              FORCE_INIT_MESSAGE)
+                              f"{FORCE_INIT_MESSAGE}")
 
         # initialize: we have an existing GeoPackage in our Mergin Maps project and we want to initialize database
         print("The base and modified schemas do not exist yet, going to initialize them ...")
@@ -745,7 +745,7 @@ def init(conn_cfg, mc, from_gpkg=True):
                 print(f"Local project version at {_get_project_version(work_dir)} and base schema at {db_proj_info['version']}")
                 _print_changes_summary(summary_base, "Base schema changes:")
                 raise DbSyncError("The output GPKG file exists already but is not synchronized with db 'base' schema." 
-                                  FORCE_INIT_MESSAGE)
+                                  f"{FORCE_INIT_MESSAGE}")
             elif len(summary_modified):
                 print("The output GPKG file exists already but it is not synchronised with modified schema, "
                       "please run pull/push commands to fix it")
@@ -756,10 +756,10 @@ def init(conn_cfg, mc, from_gpkg=True):
                 return  # nothing to do
         elif os.path.exists(gpkg_full_path):
             raise DbSyncError(f"The output GPKG exists but the base schema is missing: {conn_cfg.base}. "
-                              FORCE_INIT_MESSAGE)
+                              f"{FORCE_INIT_MESSAGE}")
         elif base_schema_exists:
             raise DbSyncError(f"The base schema exists but the output GPKG exists is missing: {gpkg_full_path}. "
-                              FORCE_INIT_MESSAGE)
+                              f"{FORCE_INIT_MESSAGE}")
 
         # initialize: we have an existing schema in database with tables and we want to initialize geopackage
         # within our Mergin Maps project
