@@ -16,8 +16,9 @@ from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config,
     _get_db_project_comment, _get_mergin_project, _get_project_id, _validate_local_project_id, config, _add_quotes_to_schema_name, \
     dbsync_clean, _check_schema_exists
 
-from .conftest import (WORKSPACE, TMP_DIR, DB_CONNINFO, 
+from .conftest import (WORKSPACE, TMP_DIR, DB_CONNINFO, GEODIFF_EXE, API_USER, USER_PWD, SERVER_URL,
                        TEST_DATA_DIR, init_sync_from_geopackage)
+
 
 
 def test_init_from_gpkg(mc: MerginClient):
