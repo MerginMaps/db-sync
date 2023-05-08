@@ -5,25 +5,11 @@ Copyright (C) 2022 Lutra Consulting
 
 License: MIT
 """
-import os
 import pytest
 
 from config import config, ConfigError, validate_config, get_ignored_tables
 
-SERVER_URL = os.environ.get('TEST_MERGIN_URL')
-API_USER = os.environ.get('TEST_API_USERNAME')
-USER_PWD = os.environ.get('TEST_API_PASSWORD')
-
-
-def _reset_config():
-    """ helper to reset config settings to ensure valid config """
-    config.update({
-        'MERGIN__USERNAME': API_USER,
-        'MERGIN__PASSWORD': USER_PWD,
-        'MERGIN__URL': SERVER_URL,
-        'init_from': "gpkg",
-        'CONNECTIONS': [{"driver": "postgres", "conn_info": "", "modified": "mergin_main", "base": "mergin_base", "mergin_project": "john/dbsync", "sync_file": "sync.gpkg"}]
-    })
+from .conftest import _reset_config
 
 
 def test_config():

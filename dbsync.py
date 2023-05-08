@@ -20,8 +20,9 @@ import re
 import pathlib
 
 import psycopg2
-from itertools import chain
+import psycopg2.extensions
 from psycopg2 import sql
+from itertools import chain
 
 from mergin import MerginClient, MerginProject, LoginError, ClientError, InvalidProject
 from version import __version__
@@ -83,6 +84,28 @@ def _check_schema_exists(conn, schema_name):
     cur = conn.cursor()
     cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = %s)", (schema_name,))
     return cur.fetchone()[0]
+
+
+def _check_postgis_available(conn: psycopg2.extensions.connection) -> bool:
+    cur = conn.cursor()
+    cur.execute("SELECT extname FROM pg_extension;")
+    try:
+        result = cur.fetchall()
+        for row in result:
+            if row[0].lower() == "postgis":
+                return True
+        return False
+    except psycopg2.ProgrammingError:
+        return False
+
+
+def _try_install_postgis(conn: psycopg2.extensions.connection) -> bool:
+    cur = conn.cursor()
+    try:
+        cur.execute("CREATE EXTENSION postgis;")
+        return True
+    except psycopg2.ProgrammingError:
+        return False
 
 
 def _check_has_password():
@@ -600,6 +623,11 @@ def init(conn_cfg, mc, from_gpkg=True):
         conn = psycopg2.connect(conn_cfg.conn_info)
     except psycopg2.Error as e:
         raise DbSyncError("Unable to connect to the database: " + str(e))
+
+    if conn_cfg.driver.lower() == "postgres":
+        if not _check_postgis_available(conn):
+            if not _try_install_postgis(conn):
+                raise DbSyncError("Cannot find or activate `postgis` extension. You may need to install it.")
 
     base_schema_exists = _check_schema_exists(conn, conn_cfg.base)
     modified_schema_exists = _check_schema_exists(conn, conn_cfg.modified)
