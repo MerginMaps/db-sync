@@ -9,6 +9,8 @@ import sys
 import time
 import argparse
 import platform
+import logging
+import datetime
 import os
 import pathlib
 
@@ -33,6 +35,18 @@ def pyinstaller_path_fix() -> None:
         pyinstaller_update_path()
 
 
+def get_logger(log_path, with_time=True, with_level=True) -> logging.Logger:
+    log = logging.getLogger(f"{log_path}")
+    log.setLevel(logging.DEBUG)
+    if not log.handlers:
+        log_handler = logging.FileHandler(log_path, mode="a")
+        format = "%(asctime)s -" if with_time else ""
+        format += "%(levelname)s - %(message)s" if with_level else "%(message)s"
+        log_handler.setFormatter(logging.Formatter(format))
+        log.addHandler(log_handler)
+    return log
+
+
 def main():
 
     pyinstaller_path_fix()
@@ -45,10 +59,18 @@ def main():
     parser.add_argument("--skip-init", action="store_true", help="Skip DB sync init step to make the tool start faster. It is not recommend to use it unless you are really sure you can skip the initial sanity checks.")
     parser.add_argument("--single-run", action="store_true", help="Run just once performing single pull and push operation, instead of running in infinite loop.")
     parser.add_argument("--force-init", action="store_true", help="Force removing working directory and schemas from DB to initialize from scratch.")
+    parser.add_argument("--log-file", default="", action="store", help="Store logging to file.")
 
     args = parser.parse_args()
 
     print(f"== starting mergin-db-sync daemon == version {__version__} ==")
+
+    log_file: pathlib.Path = None
+    logger: logging.Logger = None
+
+    if args.log_file:
+        log_file = pathlib.Path(args.log_file)
+        logger = get_logger(log_file.as_posix())
 
     try:
         update_config_path(args.config_file)
@@ -118,6 +140,8 @@ def main():
                     mc = dbsync.create_mergin_client()
 
             except dbsync.DbSyncError as e:
+                if logger:
+                    logger.error(str(e))
                 print("Error: " + str(e), file=sys.stderr)
 
             print("Going to sleep")
