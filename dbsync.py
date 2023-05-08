@@ -17,10 +17,12 @@ import tempfile
 import random
 import uuid
 import re
+import pathlib
 
 import psycopg2
-from itertools import chain
+import psycopg2.extensions
 from psycopg2 import sql
+from itertools import chain
 
 from mergin import MerginClient, MerginProject, LoginError, ClientError, InvalidProject
 from version import __version__
@@ -29,6 +31,8 @@ from config import config, validate_config, get_ignored_tables, ConfigError
 # set high logging level for geodiff (used by geodiff executable)
 # so we get as much information as possible
 os.environ["GEODIFF_LOGGER_LEVEL"] = '4'   # 0 = nothing, 1 = errors, 2 = warning, 3 = info, 4 = debug
+
+FORCE_INIT_MESSAGE = "Running `dbsync_deamon.py` with `--force-init` should fix the issue."
 
 
 class DbSyncError(Exception):
@@ -72,7 +76,7 @@ def _check_has_sync_file(file_path):
 
 def _drop_schema(conn, schema_name: str) -> None:
     cur = conn.cursor()
-    cur.execute(sql.SQL("DROP SCHEMA IF EXIST {} CASCADE").format(sql.Identifier(schema_name)))
+    cur.execute(sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(schema_name)))
     conn.commit()
 
 
@@ -80,6 +84,28 @@ def _check_schema_exists(conn, schema_name):
     cur = conn.cursor()
     cur.execute("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = %s)", (schema_name,))
     return cur.fetchone()[0]
+
+
+def _check_postgis_available(conn: psycopg2.extensions.connection) -> bool:
+    cur = conn.cursor()
+    cur.execute("SELECT extname FROM pg_extension;")
+    try:
+        result = cur.fetchall()
+        for row in result:
+            if row[0].lower() == "postgis":
+                return True
+        return False
+    except psycopg2.ProgrammingError:
+        return False
+
+
+def _try_install_postgis(conn: psycopg2.extensions.connection) -> bool:
+    cur = conn.cursor()
+    try:
+        cur.execute("CREATE EXTENSION postgis;")
+        return True
+    except psycopg2.ProgrammingError:
+        return False
 
 
 def _check_has_password():
@@ -598,6 +624,11 @@ def init(conn_cfg, mc, from_gpkg=True):
     except psycopg2.Error as e:
         raise DbSyncError("Unable to connect to the database: " + str(e))
 
+    if conn_cfg.driver.lower() == "postgres":
+        if not _check_postgis_available(conn):
+            if not _try_install_postgis(conn):
+                raise DbSyncError("Cannot find or activate `postgis` extension. You may need to install it.")
+
     base_schema_exists = _check_schema_exists(conn, conn_cfg.base)
     modified_schema_exists = _check_schema_exists(conn, conn_cfg.modified)
 
@@ -609,7 +640,8 @@ def init(conn_cfg, mc, from_gpkg=True):
         db_proj_info = _get_db_project_comment(conn, conn_cfg.base)
         if not db_proj_info:
             raise DbSyncError("Base schema exists but missing which project it belongs to. "
-                              f"This may be a result of a previously failed attempt to initialize DB sync. You can delete both schemas `{conn_cfg.base}` and `{conn_cfg.modified}` to fix this error and restart DB sync.")
+                              "This may be a result of a previously failed attempt to initialize DB sync. "
+                              f"{FORCE_INIT_MESSAGE}")
         if "error" in db_proj_info:
             changes_gpkg_base = _compare_datasets("sqlite", "", gpkg_full_path, conn_cfg.driver,
                                                   conn_cfg.conn_info, conn_cfg.base, ignored_tables,
@@ -634,7 +666,8 @@ def init(conn_cfg, mc, from_gpkg=True):
                 mp = _get_mergin_project(work_dir)
                 local_project_id = _get_project_id(mp)
                 if (db_project_id and local_project_id) and (db_project_id != local_project_id):
-                    raise DbSyncError(f"Database project ID doesn't match local project ID.")
+                    raise DbSyncError("Database project ID doesn't match local project ID. "
+                                      f"{FORCE_INIT_MESSAGE}")
                 if local_version != db_proj_info["version"]:
                     _redownload_project(conn_cfg, mc, work_dir, db_proj_info)
             except InvalidProject as e:
@@ -660,7 +693,8 @@ def init(conn_cfg, mc, from_gpkg=True):
     if status_pull['added'] or status_pull['updated'] or status_pull['removed']:
         print("There are pending changes on server, please run pull command after init")
     if status_push['added'] or status_push['updated'] or status_push['removed']:
-        raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push))
+        raise DbSyncError("There are pending changes in the local directory - that should never happen! " + str(status_push) + " " +
+                          f"{FORCE_INIT_MESSAGE}")
 
     if from_gpkg:
         if not os.path.exists(gpkg_full_path):
@@ -676,7 +710,8 @@ def init(conn_cfg, mc, from_gpkg=True):
                 # seems someone modified base schema manually - this should never happen!
                 print(f"Local project version at {local_version} and base schema at {db_proj_info['version']}")
                 _print_changes_summary(summary_base, "Base schema changes:")
-                raise DbSyncError("The db schemas already exist but 'base' schema is not synchronized with source GPKG")
+                raise DbSyncError("The db schemas already exist but 'base' schema is not synchronized with source GPKG. "
+                                  f"{FORCE_INIT_MESSAGE}")
             elif len(summary_modified):
                 print("Modified schema is not synchronised with source GPKG, please run pull/push commands to fix it")
                 _print_changes_summary(summary_modified, "Pending Changes:")
@@ -686,10 +721,12 @@ def init(conn_cfg, mc, from_gpkg=True):
                 return  # nothing to do
         elif modified_schema_exists:
             raise DbSyncError(f"The 'modified' schema exists but the base schema is missing: {conn_cfg.base}. "
-                              f"This may be a result of a previously failed attempt to initialize DB sync. You can delete schema `{conn_cfg.modified}` in the database to fix this error and restart DB sync.")
+                              "This may be a result of a previously failed attempt to initialize DB sync. "
+                              f"{FORCE_INIT_MESSAGE}")
         elif base_schema_exists:
             raise DbSyncError(f"The base schema exists but the modified schema is missing: {conn_cfg.modified}. "
-                              f"This may be a result of a previously failed attempt to initialize DB sync. You can delete schema `{conn_cfg.base}` in the database to fix this error and restart DB sync.")
+                              "This may be a result of a previously failed attempt to initialize DB sync. "
+                              f"{FORCE_INIT_MESSAGE}")
 
         # initialize: we have an existing GeoPackage in our Mergin Maps project and we want to initialize database
         print("The base and modified schemas do not exist yet, going to initialize them ...")
@@ -735,7 +772,8 @@ def init(conn_cfg, mc, from_gpkg=True):
             if len(summary_base):
                 print(f"Local project version at {_get_project_version(work_dir)} and base schema at {db_proj_info['version']}")
                 _print_changes_summary(summary_base, "Base schema changes:")
-                raise DbSyncError("The output GPKG file exists already but is not synchronized with db 'base' schema")
+                raise DbSyncError("The output GPKG file exists already but is not synchronized with db 'base' schema." 
+                                  f"{FORCE_INIT_MESSAGE}")
             elif len(summary_modified):
                 print("The output GPKG file exists already but it is not synchronised with modified schema, "
                       "please run pull/push commands to fix it")
@@ -745,9 +783,11 @@ def init(conn_cfg, mc, from_gpkg=True):
                 print("The GPKG file, base and modified schemas are already initialized and in sync")
                 return  # nothing to do
         elif os.path.exists(gpkg_full_path):
-            raise DbSyncError(f"The output GPKG exists but the base schema is missing: {conn_cfg.base}")
+            raise DbSyncError(f"The output GPKG exists but the base schema is missing: {conn_cfg.base}. "
+                              f"{FORCE_INIT_MESSAGE}")
         elif base_schema_exists:
-            raise DbSyncError(f"The base schema exists but the output GPKG exists is missing: {gpkg_full_path}")
+            raise DbSyncError(f"The base schema exists but the output GPKG exists is missing: {gpkg_full_path}. "
+                              f"{FORCE_INIT_MESSAGE}")
 
         # initialize: we have an existing schema in database with tables and we want to initialize geopackage
         # within our Mergin Maps project
@@ -809,3 +849,50 @@ def dbsync_push(mc):
 def dbsync_status(mc):
     for conn in config.connections:
         status(conn, mc)
+
+
+def clean(conn_cfg, mc):
+    from_db = config.init_from.lower() == "db"
+
+    if pathlib.Path(config.working_dir).exists():
+        try:
+            shutil.rmtree(config.working_dir)
+        except FileNotFoundError as e:
+            raise DbSyncError("Unable to remove working directory: " + str(e))
+
+    if from_db:
+        temp_folder = pathlib.Path(config.working_dir).parent / "project_to_delete_sync_file"
+        try:
+            # to remove sync file, download project to created directory, drop file and push changes back
+            file = temp_folder / conn_cfg.sync_file
+            mc.download_project(conn_cfg.mergin_project, str(temp_folder))
+            if file.exists():
+                file.unlink()
+            mc.push_project(str(temp_folder))
+        except Exception as e:
+            raise DbSyncError("Error removing sync file from MM project:" + str(e))
+        finally:
+            # delete the temp_folder no matter what if it exist
+            if temp_folder.exists():
+                shutil.rmtree(temp_folder)
+
+    try:
+        conn_db = psycopg2.connect(conn_cfg.conn_info)
+    except psycopg2.Error as e:
+        raise DbSyncError("Unable to connect to the database: " + str(e))
+
+    try:
+        _drop_schema(conn_db, conn_cfg.base)
+
+        if not from_db:
+            _drop_schema(conn_db, conn_cfg.modified)
+
+    except psycopg2.Error as e:
+        raise DbSyncError("Unable to drop schema from database: " + str(e))
+
+
+def dbsync_clean(mc):
+    for conn in config.connections:
+        clean(conn, mc)
+
+    print("Cleaning done!")
