@@ -1,0 +1,13 @@
+pyinstaller ../dbsync_daemon.py ^
+	-c ^
+	--noconfirm ^
+	--add-binary="./windows_binaries/geodiff.exe;lib" ^
+	--add-binary="./windows_binaries/geodiff.dll;lib" ^
+	--add-binary="./windows_binaries/libcrypto-3-x64.dll;lib" ^
+	--add-binary="./windows_binaries/LIBPQ.dll;lib" ^
+	--add-binary="./windows_binaries/libssl-3-x64.dll;lib" ^
+	--add-binary="./windows_binaries/sqlite3.dll;lib" ^
+	--hidden-import dynaconf ^
+	--collect-all mergin ^
+	--clean ^
+	-F
