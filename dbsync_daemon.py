@@ -8,13 +8,34 @@ import datetime
 import sys
 import time
 import argparse
+import platform
+import os
+import pathlib
 
 import dbsync
 from version import __version__
 from config import config, validate_config, ConfigError, update_config_path
 
 
+def is_pyinstaller() -> bool:
+    if getattr(sys, 'frozen', False) and platform.system() == "Windows":
+        return True
+    return False
+
+
+def pyinstaller_update_path() -> None:
+    path = pathlib.Path(__file__).parent / "lib"
+    os.environ["PATH"] += os.pathsep + path.as_posix()
+
+
+def pyinstaller_path_fix() -> None:
+    if is_pyinstaller():
+        pyinstaller_update_path()
+
+
 def main():
+
+    pyinstaller_path_fix()
 
     parser = argparse.ArgumentParser(prog='dbsync_deamon.py',
                                      description='Synchronization tool between Mergin Maps project and database.',
