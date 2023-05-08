@@ -4,6 +4,8 @@ import pytest
 import os
 import shutil
 import sqlite3
+import tempfile
+import pathlib
 
 import psycopg2
 from psycopg2 import sql
@@ -11,7 +13,8 @@ from psycopg2 import sql
 from mergin import MerginClient
 
 from dbsync import dbsync_init, dbsync_pull, dbsync_push, dbsync_status, config, DbSyncError, _geodiff_make_copy, \
-    _get_db_project_comment, _get_mergin_project, _get_project_id, _validate_local_project_id, config, _add_quotes_to_schema_name
+    _get_db_project_comment, _get_mergin_project, _get_project_id, _validate_local_project_id, config, _add_quotes_to_schema_name, \
+    dbsync_clean, _check_schema_exists
 
 from .conftest import (WORKSPACE, TMP_DIR, DB_CONNINFO, 
                        TEST_DATA_DIR, init_sync_from_geopackage)
@@ -467,3 +470,81 @@ def test_init_from_gpkg_missing_comment(mc: MerginClient):
     # check that schema does not exists anymore
     cur.execute(sql_cmd)
     cur.fetchone() is None
+
+
+def test_dbsync_clean_from_gpkg(mc: MerginClient):
+    project_name = "test_clean"
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, 'base.gpkg')
+    db_schema_base = project_name + "_base"
+    db_schema_main = project_name + "_main"
+    full_project_name = WORKSPACE + "/" + project_name
+    sync_project_dir = os.path.join(TMP_DIR, project_name + '_dbsync')
+
+    connection = {
+        "driver": "postgres",
+        "conn_info": DB_CONNINFO,
+        "modified": db_schema_main,
+        "base": db_schema_base,
+        "mergin_project": full_project_name,
+        "sync_file": "test_sync.gpkg"}
+
+    config.update({
+        'GEODIFF_EXE': GEODIFF_EXE,
+        'WORKING_DIR': sync_project_dir,
+        'MERGIN__USERNAME': API_USER,
+        'MERGIN__PASSWORD': USER_PWD,
+        'MERGIN__URL': SERVER_URL,
+        'CONNECTIONS': [connection],
+        'init_from': "gpkg"
+    })
+
+    conn = psycopg2.connect(DB_CONNINFO)
+
+    # we can run clean even before init
+    dbsync_clean(mc)
+
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    # edit sync GPKG and push to server
+    con = sqlite3.connect(os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
+    cur = con.cursor()
+    cur.execute("ALTER TABLE simple ADD COLUMN \"new_field\" TEXT;")
+    cur.execute("CREATE TABLE new_table (id INTEGER PRIMARY KEY, number INTEGER DEFAULT 0);")
+    cur.execute("INSERT INTO new_table (number) VALUES (99);")
+    con.commit()
+    con.close()
+    mc.push_project(os.path.join(sync_project_dir, project_name))
+
+    # replace it locally back with previous version - so there is mismatch, on server there is a column, that does not exist locally
+    os.remove(os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
+    shutil.copy(source_gpkg_path, os.path.join(sync_project_dir, project_name, 'test_sync.gpkg'))
+
+    # try init then pull and push, causing geodiff failed error
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc)
+        dbsync_pull(mc)
+        dbsync_push(mc)
+    assert "geodiff failed" in str(err.value)
+
+    # prior to dbsync_clean everything exists
+    assert _check_schema_exists(conn, db_schema_base)
+    assert _check_schema_exists(conn, db_schema_main)
+    assert pathlib.Path(config.working_dir).exists()
+
+    dbsync_clean(mc)
+
+    # after the dbsync_clean nothing exists
+    assert pathlib.Path(config.working_dir).exists() is False
+    assert _check_schema_exists(conn, db_schema_base) is False
+    assert _check_schema_exists(conn, db_schema_main) is False
+
+    # make sure that running the clean second time does not cause issue
+    dbsync_clean(mc)
+
+    # after clean we can init
+    init_sync_from_geopackage(mc, project_name, source_gpkg_path)
+
+    # test that after clean everything works
+    dbsync_init(mc)
+    dbsync_pull(mc)
+    dbsync_push(mc)
