@@ -10,9 +10,9 @@ import time
 import argparse
 import platform
 import logging
-import datetime
 import os
 import pathlib
+import typing
 
 import dbsync
 from version import __version__
@@ -35,16 +35,35 @@ def pyinstaller_path_fix() -> None:
         pyinstaller_update_path()
 
 
-def get_logger(log_path, with_time=True, with_level=True) -> logging.Logger:
-    log = logging.getLogger(f"{log_path}")
-    log.setLevel(logging.DEBUG)
-    if not log.handlers:
+LOGGER: logging.Logger = None
+
+
+def setup_logger(log_path, log_messages: bool, with_time=True, with_level=True) -> logging.Logger:
+    global LOGGER
+    LOGGER = logging.getLogger(f"{log_path}")
+    if log_messages:
+        LOGGER.setLevel(logging.DEBUG)
+    else:
+        LOGGER.setLevel(logging.WARNING)
+    if not LOGGER.handlers:
         log_handler = logging.FileHandler(log_path, mode="a")
         format = "%(asctime)s -" if with_time else ""
         format += "%(levelname)s - %(message)s" if with_level else "%(message)s"
         log_handler.setFormatter(logging.Formatter(format))
-        log.addHandler(log_handler)
-    return log
+        LOGGER.addHandler(log_handler)
+
+
+def handle_error(error: typing.Union[Exception, str]):
+    if LOGGER:
+        LOGGER.error(str(error))
+    print("Error: " + str(error), file=sys.stderr)
+    sys.exit(1)
+
+
+def handle_message(msg: str):
+    if LOGGER:
+        LOGGER.debug(msg)
+    print(msg)
 
 
 def main():
@@ -60,36 +79,33 @@ def main():
     parser.add_argument("--single-run", action="store_true", help="Run just once performing single pull and push operation, instead of running in infinite loop.")
     parser.add_argument("--force-init", action="store_true", help="Force removing working directory and schemas from DB to initialize from scratch.")
     parser.add_argument("--log-file", default="", action="store", help="Store logging to file.")
+    parser.add_argument("--log-messages", action="store_true", help="Log messages, not only errors.")
 
     args = parser.parse_args()
 
-    print(f"== starting mergin-db-sync daemon == version {__version__} ==")
-
-    log_file: pathlib.Path = None
-    logger: logging.Logger = None
-
     if args.log_file:
         log_file = pathlib.Path(args.log_file)
-        logger = get_logger(log_file.as_posix())
+        setup_logger(log_file.as_posix(), args.log_messages)
+
+    handle_message(f"== starting mergin-db-sync daemon == version {__version__} ==")
 
     try:
         update_config_path(args.config_file)
     except IOError as e:
-        print("Error: " + str(e), file=sys.stderr)
-        sys.exit(1)
+        handle_error(e)
 
     sleep_time = config.as_int("daemon.sleep_time")
     try:
         validate_config(config)
     except ConfigError as e:
-        print("Error: " + str(e), file=sys.stderr)
-        sys.exit(1)
+        handle_error(e)
 
     if args.force_init and args.skip_init:
-        print("Cannot use `--force-init` with `--skip-init` Initialization is required. ", file=sys.stderr)
-        sys.exit(1)
+        msg = "Cannot use `--force-init` with `--skip-init` Initialization is required. "
+        handle_error(msg)
 
-    print("Logging in to Mergin...")
+    handle_message("Logging in to Mergin...")
+
     mc = dbsync.create_mergin_client()
 
     if args.force_init:
@@ -101,18 +117,17 @@ def main():
             try:
                 dbsync.dbsync_init(mc)
             except dbsync.DbSyncError as e:
-                print("Error: " + str(e), file=sys.stderr)
-                sys.exit(1)
+                handle_error(e)
 
         try:
-            print("Trying to pull")
+            handle_message("Trying to pull")
             dbsync.dbsync_pull(mc)
 
-            print("Trying to push")
+            handle_message("Trying to push")
             dbsync.dbsync_push(mc)
+
         except dbsync.DbSyncError as e:
-            print("Error: " + str(e), file=sys.stderr)
-            sys.exit(1)
+            handle_error(e)
 
     else:
 
@@ -120,18 +135,17 @@ def main():
             try:
                 dbsync.dbsync_init(mc)
             except dbsync.DbSyncError as e:
-                print("Error: " + str(e), file=sys.stderr)
-                sys.exit(1)
+                handle_error(e)
 
         while True:
 
             print(datetime.datetime.now())
 
             try:
-                print("Trying to pull")
+                handle_message("Trying to pull")
                 dbsync.dbsync_pull(mc)
 
-                print("Trying to push")
+                handle_message("Trying to push")
                 dbsync.dbsync_push(mc)
 
                 # check mergin client token expiration
@@ -140,11 +154,9 @@ def main():
                     mc = dbsync.create_mergin_client()
 
             except dbsync.DbSyncError as e:
-                if logger:
-                    logger.error(str(e))
-                print("Error: " + str(e), file=sys.stderr)
+                handle_error(e)
 
-            print("Going to sleep")
+            handle_message("Going to sleep")
             time.sleep(sleep_time)
 
 
