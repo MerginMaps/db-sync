@@ -101,8 +101,7 @@ def main():
         handle_error(e)
 
     if args.force_init and args.skip_init:
-        msg = "Cannot use `--force-init` with `--skip-init` Initialization is required. "
-        handle_error(msg)
+        handle_error("Cannot use `--force-init` with `--skip-init` Initialization is required. ")
 
     handle_message("Logging in to Mergin...")
 
