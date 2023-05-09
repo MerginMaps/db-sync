@@ -38,11 +38,13 @@ def pyinstaller_path_fix() -> None:
 LOGGER: logging.Logger = None
 
 
-def setup_logger(log_path, log_messages: bool, with_time=True, with_level=True) -> logging.Logger:
+def setup_logger(log_path, log_verbosity: str, with_time=True, with_level=True) -> logging.Logger:
     global LOGGER
     LOGGER = logging.getLogger(f"{log_path}")
-    if log_messages:
+    if log_verbosity == "messages":
         LOGGER.setLevel(logging.DEBUG)
+    elif log_verbosity == "errors":
+        LOGGER.setLevel(logging.WARNING)
     else:
         LOGGER.setLevel(logging.WARNING)
     if not LOGGER.handlers:
@@ -79,13 +81,13 @@ def main():
     parser.add_argument("--single-run", action="store_true", help="Run just once performing single pull and push operation, instead of running in infinite loop.")
     parser.add_argument("--force-init", action="store_true", help="Force removing working directory and schemas from DB to initialize from scratch.")
     parser.add_argument("--log-file", default="", action="store", help="Store logging to file.")
-    parser.add_argument("--log-messages", action="store_true", help="Log messages, not only errors.")
+    parser.add_argument("--log-verbosity", choices=["errors", "messages"], default="errors", help="Log messages, not only errors.")
 
     args = parser.parse_args()
 
     if args.log_file:
         log_file = pathlib.Path(args.log_file)
-        setup_logger(log_file.as_posix(), args.log_messages)
+        setup_logger(log_file.as_posix(), args.log_verbosity)
 
     handle_message(f"== starting mergin-db-sync daemon == version {__version__} ==")
 
