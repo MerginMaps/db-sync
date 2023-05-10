@@ -2,7 +2,7 @@ import select
 import psycopg2
 import psycopg2.extensions
 
-DSN=""
+DSN = ""
 
 conn = psycopg2.connect(DSN)
 conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
@@ -15,11 +15,15 @@ print("Waiting for notifications on channel 'geodiff'")
 
 import dbsync
 
-sleep_time = dbsync.config['daemon']['sleep_time']
+sleep_time = dbsync.config["daemon"]["sleep_time"]
 
 
 while True:
-    if select.select([conn],[],[],5) == ([],[],[]):
+    if select.select([conn], [], [], 5,) == (
+        [],
+        [],
+        [],
+    ):
         print("Timeout")
 
         print("Trying to pull")
@@ -29,7 +33,12 @@ while True:
         conn.poll()
         while conn.notifies:
             notify = conn.notifies.pop(0)
-            print("Got NOTIFY:", notify.pid, notify.channel, notify.payload)
+            print(
+                "Got NOTIFY:",
+                notify.pid,
+                notify.channel,
+                notify.payload,
+            )
 
         # new stuff in the database - let's push a new version
 
@@ -41,7 +50,6 @@ while True:
 
         print("Trying to push")
         dbsync.dbsync_push()
-
 
 
 # TODO: create on init
