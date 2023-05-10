@@ -3,14 +3,15 @@
 This tool takes care of two-way synchronization between [Mergin Maps](https://merginmaps.com/) and another database (currently supporting PostGIS).
 
 That means you can:
+
 - insert / update / delete features in PostGIS database - and the changes will get automatically
   pushed to a configured Mergin Maps project
 - insert / update / delete features in a GeoPackage in Mergin Maps project - and the changes will get
   automatically pushed to the PostGIS database
 
-**IMPORTANT**: structure of the config file was changed in the latest version. Therefore old .ini config files should be migrated and enviromnent values should be updated.
+**IMPORTANT**: structure of the config file was changed in the latest version. Therefore old .ini config files need to be updated.
 
-### How does it work
+## How does it work
 
 - a single GeoPackage file in a Mergin Maps project is treated as an equivalent of a database schema - both can contain
   multiple tables with data
@@ -20,36 +21,19 @@ That means you can:
   to figure out whether there have been any changes in the database - if there were, they will be pushed
   to the appropriate GeoPackage in Mergin Maps project
 
-### Quick start
+## Quick start
 
 Not sure where to start? Check out our [quick start](docs/quick_start.md) guide to set up sync between your database and a new Mergin Maps project.
 
 <div><img align="left" width="45" height="45" src="https://raw.githubusercontent.com/MerginMaps/docs/main/src/.vuepress/public/slack.svg"><a href="https://merginmaps.com/community/join">Join our community chat</a><br/>and ask questions!</div><br />
 
-### Running with Docker
+## Installation
 
-The easiest way to run DB sync is with Docker. To run the container, use a command like the following one:
+### Windows
 
-```
-sudo docker run -it \
-  -e MERGIN__USERNAME=john \
-  -e MERGIN__PASSWORD=myStrongPassword \
-  -e CONNECTIONS="[{driver='postgres', conn_info='host=myhost.com dbname=mergin_dbsync user=postgres password=top_secret', modified='sync_main', base='sync_base', mergin_project='john/my_project', sync_file='sync_db.gpkg'}]" \
-  lutraconsulting/mergin-db-sync:latest \
-  python3 dbsync_daemon.py --init-from-gpkg
-```
+For Windows we provide prebuild exe file for [download](fill-link).
 
-This will create `sync_main` and `sync_base` schemas in the PostgreSQL database based on the table
-schemas and from the `sync_db.gpkg` GeoPackage in `john/my_project` Mergin Maps project, and they will
-get populated by the existing data. Afterwards, the sync process will start, regularly checking both
-Mergin Maps service and your PostgreSQL for any new changes.
-
-Please make sure the PostgreSQL user in the database connection info has sufficient permissions
-to create schemas and tables.
-
-**Please note double underscore `__` is used to separate [config](config.yaml.default) group and item.**
-
-### Installation
+## Other Systems
 
 If you would like to avoid the manual installation steps, please follow the guide on using
 DB sync with Docker above.
@@ -64,7 +48,8 @@ DB sync with Docker above.
 3. Install Dynaconf library: `sudo apt install python3-dynaconf`
 
 4. Compile [geodiff](https://github.com/MerginMaps/geodiff) from master branch with PostgreSQL support:
-   ```
+
+   ```bash
    git clone https://github.com/MerginMaps/geodiff.git
    cd geodiff
    mkdir build && cd build
@@ -72,28 +57,27 @@ DB sync with Docker above.
    make
    ```
 
-4. download this git repository: `git clone https://github.com/MerginMaps/mergin-db-sync.git`
+5. download this git repository: `git clone https://github.com/MerginMaps/mergin-db-sync.git`
 
-### How to use
+6. run file `python3 dbsync_daemon.py [config_file.yaml]`
+
+## How to use
 
 Initialization:
 
 1. set up configuration in config.yaml  (see config.yaml.default for a sample)
-2. run dbsync initialization. There are two options:
 
-   A. Init from Mergin Maps project: if you have an existing Mergin Maps project with a GeoPackage
-      that already contains tables with data, this command will create schemas in your database:
-      ```
-      python3 dbsync.py init-from-gpkg
-      ```
-      This will create 'base' and 'modified' schemas in the database and populate them with data.
+2. run `dbsync_daemon.py`. There are several parameters to control the way the tool runs.
 
-   B. Init from database: if you have tables with data in your database (in the schema marked as 'modified'
-      in DB sync configuration) and want to create a GeoPackage based on that in your Mergin Maps project:
-      ```
-      python3 dbsync.py init-from-db
-      ```
-      This will create 'base' schema in the database, create GeoPackage in the working dir and push it to Mergin Maps.
+   A. `config_file_name.yaml` The file name with path of yaml config can be provided. By default the `dbsync_daemon.py` loads `config.yaml` file.
+
+   B. `--force-init` forces reinitialization of the sync. Drops dbsync schemas from database and the sync file and inits them all from scratch. This should be used to fix issues with dbsync init.
+
+   C. `--single-run` instead of running the daemon indefinitely, performs just one single run. Such run consists of initialization, pull and push steps.
+
+   D. `--skip-init` allows skipping the initialization of sync step. Should be only used if you know, what you are doing, otherwise issue are likely to occur.
+
+   E. 
 
 Once initialized:
 
