@@ -36,18 +36,20 @@ For Windows we provide prebuild exe file for [download](fill-link).
 ## Other Systems
 
 If you would like to avoid the manual installation steps, please follow the guide on using
-DB sync with Docker above.
+DB sync with [Docker](docs/docker.md).
+
+To manually install and build the required libraries follow these steps:
 
 1. Install Mergin Maps client: `pip3 install mergin-client`
 
    If you get `ModuleNotFoundError: No module named 'skbuild'` error, try to update pip with command
 `python -m pip install --upgrade pip`
 
-2. Install PostgreSQL client (for Python and for C): `sudo apt install libpq-dev python3-psycopg2`
+1. Install PostgreSQL client (for Python and for C): `sudo apt install libpq-dev python3-psycopg2`
 
-3. Install Dynaconf library: `sudo apt install python3-dynaconf`
+1. Install Dynaconf library: `sudo apt install python3-dynaconf`
 
-4. Compile [geodiff](https://github.com/MerginMaps/geodiff) from master branch with PostgreSQL support:
+1. Compile [geodiff](https://github.com/MerginMaps/geodiff) from master branch with PostgreSQL support:
 
    ```bash
    git clone https://github.com/MerginMaps/geodiff.git
@@ -57,13 +59,13 @@ DB sync with Docker above.
    make
    ```
 
-5. download this git repository: `git clone https://github.com/MerginMaps/mergin-db-sync.git`
+1. download this git repository: `git clone https://github.com/MerginMaps/mergin-db-sync.git`
 
-6. run file `python3 dbsync_daemon.py [config_file.yaml]`
+1. run file `python3 dbsync_daemon.py [config_file.yaml]`
 
 ## How to use
 
-Initialization:
+DB Sync should be run using the `dbsync_daemon.py` script.
 
 1. set up configuration in config.yaml  (see config.yaml.default for a sample)
 
@@ -75,16 +77,11 @@ Initialization:
 
    C. `--single-run` instead of running the daemon indefinitely, performs just one single run. Such run consists of initialization, pull and push steps.
 
-   D. `--skip-init` allows skipping the initialization of sync step. Should be only used if you know, what you are doing, otherwise issue are likely to occur.
+   D. `--skip-init` allows skipping the initialization of sync step. Should be only used if you know, what you are doing, otherwise issues are likely to occur.
 
-   E. 
+   E. `--log-file` specify file to store log info into. If it is not set the log info will only be printed to the console.
 
-Once initialized:
-
-- run `python3 dbsync.py status' to see if there are any changes on Mergin Maps server or in the database
-- run `python3 dbsync.py pull` to fetch data from Mergin Maps and apply them to the database
-- run `python3 dbsync.py push` to fetch data from the database and push to Mergin Maps
-
+   F. `--log-verbosity` use `errors` or `messages` to specify what should be logged. Default is `messages`.
 
 ### Creating a local database (Ubuntu 20.04)
 
@@ -114,19 +111,6 @@ CREATE TABLE sync_data.points (
 );
 ```
 
-### Running Tests
-
-To run automatic tests:
-
-    cd mergin-db-sync
-    export TEST_GEODIFF_EXE=<geodiff>           # path to geodiff executable
-    export TEST_DB_CONNINFO=<conninfo>          # connection info for DB
-    export TEST_MERGIN_URL=<url>                # testing server
-    export TEST_API_USERNAME=<username>
-    export TEST_API_PASSWORD=<pwd>
-    export TEST_API_WORKSPACE=<workspace>
-    pytest-3 test/
-
 
 ### Creating a dedicated PostgreSQL user to view/edit data
 
@@ -142,24 +126,3 @@ GRANT ALL ON ALL TABLES IN SCHEMA sync_main TO db_user;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA sync_main TO db_user;
 ```
 
-### Running the sync daemon in tmux
-
-If we SSH somewhere and want to leave the daemon (`dbsync_daemon.py`) running there
-even after logging out, we can use `tmux` utility. After starting SSH session, run
-`tmux` which will start new terminal session where you can start the script
-(`python3 dbsync_daemon.py`) and then with `Ctrl-B` followed by `d` leave the script
-running in a detached tmux session. Logging out will not affect the daemon. At some
-point later one can run `tmux attach` to bring the session back to the foreground.
-
-
-### Releasing new version
-
-1. Update `version.py` and `CHANGELOG.md`
-2. Tag the new version in git repo
-3. Build and upload the new container (both with the new version tag and as the latest tag)
-   ```
-   docker build --no-cache -t lutraconsulting/mergin-db-sync .
-   docker tag lutraconsulting/mergin-db-sync lutraconsulting/mergin-db-sync:1.0.3
-   docker push lutraconsulting/mergin-db-sync:1.0.3
-   docker push lutraconsulting/mergin-db-sync:latest
-   ```
