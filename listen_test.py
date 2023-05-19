@@ -19,12 +19,7 @@ sleep_time = dbsync.config["daemon"]["sleep_time"]
 
 
 while True:
-    if select.select(
-        [conn],
-        [],
-        [],
-        5,
-    ) == (
+    if select.select([conn], [], [], 5,) == (
         [],
         [],
         [],

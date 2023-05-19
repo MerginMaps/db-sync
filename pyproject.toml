@@ -1,3 +1,7 @@
+[tool.pytest.ini_options]
+log_cli = false # true
+log_cli_level = "DEBUG"
+
 [tool.black]
 line-length = 120
 include = '\.pyi?$'
