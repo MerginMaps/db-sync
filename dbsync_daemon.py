@@ -11,7 +11,6 @@ import platform
 import logging
 import os
 import pathlib
-import typing
 
 import dbsync
 from version import (
@@ -23,6 +22,8 @@ from config import (
     ConfigError,
     update_config_path,
 )
+
+from log_functions import setup_logger, handle_error_and_exit
 
 
 def is_pyinstaller() -> bool:
@@ -48,107 +49,7 @@ def pyinstaller_path_fix() -> None:
         pyinstaller_update_path()
 
 
-LOGGER: logging.Logger = None
-
-
-def setup_logger(
-    log_path,
-    log_verbosity: str,
-    with_time=True,
-    with_level=True,
-) -> logging.Logger:
-    global LOGGER
-    LOGGER = logging.getLogger(f"{log_path}")
-    if log_verbosity == "messages":
-        LOGGER.setLevel(logging.DEBUG)
-    elif log_verbosity == "errors":
-        LOGGER.setLevel(logging.WARNING)
-    else:
-        LOGGER.setLevel(logging.WARNING)
-    if not LOGGER.handlers:
-        log_handler = logging.FileHandler(
-            log_path,
-            mode="a",
-        )
-        format = "%(asctime)s -" if with_time else ""
-        format += "%(levelname)s - %(message)s" if with_level else "%(message)s"
-        log_handler.setFormatter(logging.Formatter(format))
-        LOGGER.addHandler(log_handler)
-
-
-def handle_error(
-    error: typing.Union[
-        Exception,
-        str,
-    ]
-):
-    if LOGGER:
-        LOGGER.error(str(error))
-    print(
-        "Error: " + str(error),
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-
-def handle_message(
-    msg: str,
-):
-    if LOGGER:
-        LOGGER.debug(msg)
-    print(msg)
-
-
-def is_pyinstaller() -> bool:
-    if getattr(sys, "frozen", False) and platform.system() == "Windows":
-        return True
-    return False
-
-
-def pyinstaller_update_path() -> None:
-    path = pathlib.Path(__file__).parent / "lib"
-    os.environ["PATH"] += os.pathsep + path.as_posix()
-
-
-def pyinstaller_path_fix() -> None:
-    if is_pyinstaller():
-        pyinstaller_update_path()
-
-
-def setup_logger(
-    log_path: pathlib.Path = None, log_verbosity: str = logging.DEBUG, with_time=True, with_level=True
-) -> logging.Logger:
-    log = logging.getLogger()
-    log.setLevel(logging.DEBUG)
-
-    print_handler = logging.StreamHandler(stream=sys.stdout)
-    print_handler.setLevel(logging.DEBUG)
-    log.addHandler(print_handler)
-
-    if log_path:
-        log_handler = logging.FileHandler(log_path, mode="a")
-
-        if log_verbosity == "messages":
-            log_handler.setLevel(logging.DEBUG)
-        elif log_verbosity == "errors":
-            log_handler.setLevel(logging.WARNING)
-        else:
-            log_handler.setLevel(logging.WARNING)
-
-        format = "%(asctime)s -" if with_time else ""
-        format += "%(levelname)s - %(message)s" if with_level else "%(message)s"
-        log_handler.setFormatter(logging.Formatter(format))
-
-        log.addHandler(log_handler)
-
-
-def handle_error_and_exit(error: typing.Union[str, Exception]):
-    logging.error(str(error))
-    sys.exit(1)
-
-
 def main():
-
     pyinstaller_path_fix()
 
     parser = argparse.ArgumentParser(
@@ -187,11 +88,15 @@ def main():
     parser.add_argument(
         "--log-verbosity",
         choices=[
-            "errors",
-            "messages",
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "FATAL",
+            "CRITICAL",
         ],
-        default="messages",
-        help="Log messages, not only errors.",
+        default="DEBUG",
+        help="Set level of logging into log-file.",
     )
 
     args = parser.parse_args()
