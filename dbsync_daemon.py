@@ -48,73 +48,6 @@ def pyinstaller_path_fix() -> None:
         pyinstaller_update_path()
 
 
-LOGGER: logging.Logger = None
-
-
-def setup_logger(
-    log_path,
-    log_verbosity: str,
-    with_time=True,
-    with_level=True,
-) -> logging.Logger:
-    global LOGGER
-    LOGGER = logging.getLogger(f"{log_path}")
-    if log_verbosity == "messages":
-        LOGGER.setLevel(logging.DEBUG)
-    elif log_verbosity == "errors":
-        LOGGER.setLevel(logging.WARNING)
-    else:
-        LOGGER.setLevel(logging.WARNING)
-    if not LOGGER.handlers:
-        log_handler = logging.FileHandler(
-            log_path,
-            mode="a",
-        )
-        format = "%(asctime)s -" if with_time else ""
-        format += "%(levelname)s - %(message)s" if with_level else "%(message)s"
-        log_handler.setFormatter(logging.Formatter(format))
-        LOGGER.addHandler(log_handler)
-
-
-def handle_error(
-    error: typing.Union[
-        Exception,
-        str,
-    ]
-):
-    if LOGGER:
-        LOGGER.error(str(error))
-    print(
-        "Error: " + str(error),
-        file=sys.stderr,
-    )
-    sys.exit(1)
-
-
-def handle_message(
-    msg: str,
-):
-    if LOGGER:
-        LOGGER.debug(msg)
-    print(msg)
-
-
-def is_pyinstaller() -> bool:
-    if getattr(sys, "frozen", False) and platform.system() == "Windows":
-        return True
-    return False
-
-
-def pyinstaller_update_path() -> None:
-    path = pathlib.Path(__file__).parent / "lib"
-    os.environ["PATH"] += os.pathsep + path.as_posix()
-
-
-def pyinstaller_path_fix() -> None:
-    if is_pyinstaller():
-        pyinstaller_update_path()
-
-
 def setup_logger(
     log_path: pathlib.Path = None, log_verbosity: str = logging.DEBUG, with_time=True, with_level=True
 ) -> logging.Logger:
@@ -148,7 +81,6 @@ def handle_error_and_exit(error: typing.Union[str, Exception]):
 
 
 def main():
-
     pyinstaller_path_fix()
 
     parser = argparse.ArgumentParser(
