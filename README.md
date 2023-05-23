@@ -27,6 +27,26 @@ Not sure where to start? Check out our [quick start](docs/quick_start.md) guide 
 
 <div><img align="left" width="45" height="45" src="https://raw.githubusercontent.com/MerginMaps/docs/main/src/.vuepress/public/slack.svg"><a href="https://merginmaps.com/community/join">Join our community chat</a><br/>and ask questions!</div><br />
 
+## How to use
+
+DB Sync should be run using the `dbsync_daemon.py` script.
+
+1. set up configuration in config.yaml  (see config.yaml.default for a sample)
+
+2. run `dbsync_daemon.py`. There are several parameters to control the way the tool runs.
+
+   A. `config_file_name.yaml` The file name with path of yaml config can be provided. By default the `dbsync_daemon.py` loads `config.yaml` file.
+
+   B. `--force-init` forces reinitialization of the sync. Drops dbsync schemas from database and the sync file and inits them all from scratch. This should be used to fix issues with dbsync init.
+
+   C. `--single-run` instead of running the daemon indefinitely, performs just one single run. Such run consists of initialization, pull and push steps.
+
+   D. `--skip-init` allows skipping the initialization of sync step. Should be only used if you know, what you are doing, otherwise issues are likely to occur.
+
+   E. `--log-file` specify file to store log info into. If it is not set the log info will only be printed to the console.
+
+   F. `--log-verbosity` use `errors` or `messages` to specify what should be logged. Default is `messages`.
+
 ## Installation
 
 ### Windows
@@ -62,67 +82,3 @@ To manually install and build the required libraries follow these steps:
 1. download this git repository: `git clone https://github.com/MerginMaps/mergin-db-sync.git`
 
 1. run file `python3 dbsync_daemon.py [config_file.yaml]`
-
-## How to use
-
-DB Sync should be run using the `dbsync_daemon.py` script.
-
-1. set up configuration in config.yaml  (see config.yaml.default for a sample)
-
-2. run `dbsync_daemon.py`. There are several parameters to control the way the tool runs.
-
-   A. `config_file_name.yaml` The file name with path of yaml config can be provided. By default the `dbsync_daemon.py` loads `config.yaml` file.
-
-   B. `--force-init` forces reinitialization of the sync. Drops dbsync schemas from database and the sync file and inits them all from scratch. This should be used to fix issues with dbsync init.
-
-   C. `--single-run` instead of running the daemon indefinitely, performs just one single run. Such run consists of initialization, pull and push steps.
-
-   D. `--skip-init` allows skipping the initialization of sync step. Should be only used if you know, what you are doing, otherwise issues are likely to occur.
-
-   E. `--log-file` specify file to store log info into. If it is not set the log info will only be printed to the console.
-
-   F. `--log-verbosity` use `errors` or `messages` to specify what should be logged. Default is `messages`.
-
-### Creating a local database (Ubuntu 20.04)
-
-Install PostgreSQL server and PostGIS extension:
-```
-sudo apt install postgresql postgis
-```
-
-Add a user `john` and create a database for the user:
-```
-sudo -u postgres createuser john
-sudo -u postgres psql -c "CREATE DATABASE john OWNER john"
-sudo -u postgres psql -d john -c "CREATE EXTENSION postgis;"
-```
-
-### Creating a working schema
-
-One can use `psql` tool to create a new schema and a single table there:
-
-```
-CREATE SCHEMA sync_data;
-
-CREATE TABLE sync_data.points (
-  fid serial primary key,
-  name text,
-  rating integer, geom geometry(Point, 4326)
-);
-```
-
-
-### Creating a dedicated PostgreSQL user to view/edit data
-
-Assuming we have database named `mergin_dbsync` where `sync_main` is the name of the schema
-which will be used for ordinary database users, here is how we can create and grant
-permissions to those users:
-
-```
-CREATE USER db_user WITH PASSWORD 'TopSecretPassword';
-GRANT ALL ON DATABASE mergin_dbsync TO db_user;
-GRANT ALL ON SCHEMA sync_main TO db_user;
-GRANT ALL ON ALL TABLES IN SCHEMA sync_main TO db_user;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA sync_main TO db_user;
-```
-
