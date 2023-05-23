@@ -1501,6 +1501,8 @@ def clean(conn_cfg, mc):
         except Exception as e:
             raise DbSyncError("Error removing sync file from MM project:" + str(e))
         finally:
+            # close mergin project file logger to avoid issues
+            close_mergin_project_file_logger(temp_folder)
             # delete the temp_folder no matter what if it exist
             if temp_folder.exists():
                 shutil.rmtree(temp_folder)
@@ -1533,3 +1535,13 @@ def dbsync_clean(
         clean(conn, mc)
 
     logging.debug("Cleaning done!")
+
+
+def close_mergin_project_file_logger(project_folder: pathlib.Path) -> None:
+    log = logging.getLogger("mergin.project." + str(project_folder))
+
+    for handler in log.handlers:
+        if isinstance(handler, logging.FileHandler):
+            log.removeHandler(handler)
+            handler.flush()
+            handler.close()
