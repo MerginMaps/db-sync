@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     libsqlite3-dev \
     python3-pip \
     python3-psycopg2 \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Python Mergin client
 RUN python3 -m pip install --upgrade pip
@@ -39,6 +39,7 @@ COPY version.py .
 COPY config.py .
 COPY dbsync.py .
 COPY dbsync_daemon.py .
+COPY log_functions.py .
 
 # base DB sync config file (the rest is configured with env variables)
 COPY config-dockerfile.yaml ./config.yaml
