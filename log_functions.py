@@ -15,13 +15,8 @@ def setup_logger(
     log = logging.getLogger()
     log.setLevel(logging.DEBUG)
 
-    print_handler = logging.StreamHandler(stream=sys.stdout)
-    print_handler.setLevel(logging.DEBUG)
-    print_handler.addFilter(filter_below_error)
-    log.addHandler(print_handler)
-
     print_error_handler = logging.StreamHandler(stream=sys.stderr)
-    print_error_handler.setLevel(logging.ERROR)
+    print_error_handler.setLevel(logging.DEBUG)
     log.addHandler(print_error_handler)
 
     if log_path:
