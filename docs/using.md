@@ -1,5 +1,67 @@
 # Using DB Sync
 
+## How does it work
+
+A single GeoPackage file in a Mergin Maps project is treated as an equivalent of a database schema - both
+GeoPackage and a database schema can contain  multiple tables with data - and the DB Sync tool keeps
+content of the tables in the database and in the GeoPackage the same.
+
+There are two ways how the synchronization can be started:
+ 1. Init from GeoPackage: if you have a Mergin Maps project with an existing GeoPackage, the tool will
+    create the destination schema and tables in the database (and populate those with data from GeoPackage).
+ 2. Init from database: if you have database already populated with tables and data, the tool will
+    create the destination GeoPackage in your Mergin Maps project and initialize it.
+
+More technical details:
+- to keep track of the changes in the database, the DB sync tool adds an extra schema in your database
+  (called "base" schema). This schema contains another copy of the data and it should not be touched,
+  otherwise the sync may get to invalid state.
+- the "base" schema contains the same data as the most recently seen project version in Mergin Maps. Whenever
+  the tool attempts to synchronize data, it looks up any pending changes in the database by comparing data
+  between the "base" schema and the "modified" schema (used by editing) - if any changes are detacted,
+  they will be pushed to the appropriate GeoPackage in Mergin Maps project.
+
+## Sample configuration file
+
+The configuration of the tool is done using a simple YAML file - that file is then passed as a command line
+argument to the DB Sync tool.
+
+Here's a sample configuration:
+
+```yaml
+# How to connect to Mergin Maps server
+mergin:
+  url: https://app.merginmaps.com
+  username: john
+  password: mysecret
+
+# How to initialize the sync - one of the two options:
+# - "gpkg" - use existing GeoPackage from given Mergin Maps project (and create database schema during init)
+# - "db" - use existing database schema (and create GeoPackage in Mergin Maps project during init)
+init_from: gpkg
+
+connections:
+   - driver: postgres
+     # Parameters to PostgreSQL database
+     conn_info: "host=localhost dbname=mydb user=myuser password=mypassword"
+     # Database schema that will be synchronized with Mergin Maps project
+     # (it must exist if doing init from database, it must not exist if doing init from geopackage)
+     modified: myproject_data
+     # Extra database schema that will contain internal data and should never be edited
+     # (it must not exist before the sync starts - it will be created automatically)
+     base: myproject_data_base
+     
+     # Mergin Maps project to use (<workspace>/<project>)
+     mergin_project: john/myproject
+     # Path to the GeoPackage within the Mergin Maps project above
+     # (it must exist if doing init from geopackage, it must not exist if doing init from database)
+     sync_file: data.gpkg
+
+daemon:
+  # How often to synchronize (in seconds)
+  sleep_time: 10
+```
+
 ## Useful command line options
 
 - `config_file_name.yaml` The file name with path of yaml config can be provided. By default the `dbsync_daemon.py` loads `config.yaml` file.
