@@ -59,38 +59,8 @@ DB Sync should be run using the `dbsync_daemon.py` script.
 
    F. `--log-verbosity` use `errors` or `messages` to specify what should be logged. Default is `messages`.
 
-## Installation
+## Documentation
 
-### Windows
+- [How to install](docs/install.md)
+- [For developers](docs/development.md)
 
-For Windows we provide prebuild exe file for [download](fill-link).
-
-## Other Systems
-
-If you would like to avoid the manual installation steps, please follow the guide on using
-DB sync with [Docker](docs/docker.md).
-
-To manually install and build the required libraries follow these steps:
-
-1. Install Mergin Maps client: `pip3 install mergin-client`
-
-   If you get `ModuleNotFoundError: No module named 'skbuild'` error, try to update pip with command
-`python -m pip install --upgrade pip`
-
-1. Install PostgreSQL client (for Python and for C): `sudo apt install libpq-dev python3-psycopg2`
-
-1. Install Dynaconf library: `sudo apt install python3-dynaconf`
-
-1. Compile [geodiff](https://github.com/MerginMaps/geodiff) from master branch with PostgreSQL support:
-
-   ```bash
-   git clone https://github.com/MerginMaps/geodiff.git
-   cd geodiff
-   mkdir build && cd build
-   cmake -DWITH_POSTGRESQL=TRUE ../geodiff
-   make
-   ```
-
-1. download this git repository: `git clone https://github.com/MerginMaps/mergin-db-sync.git`
-
-1. run file `python3 dbsync_daemon.py [config_file.yaml]`
