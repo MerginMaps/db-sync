@@ -58,29 +58,3 @@ In order to stop syncing simply stop docker container.
 Note: If you run your db-sync docker on the same host as your database is, you need to set up correct [networking](https://docs.docker.com/network/).
 For instance, on linux for testing purpose you can use default bridge, e.g IP address `172.17.0.1`
 
-## 4. Excluding tables from sync
-
-Sometimes in the database there are tables that should not be synchronised to Mergin projects. It is possible to ignore
-these tables and not sync them. To do so add `skip_tables` setting to the corresponding `CONNECTIONS` entry in the config
-file
-
-```yaml
-mergin:
-  url: https://app.merginmaps.com
-  username: john
-  password: mysecret
-
-init_from: gpkg
-
-connections:
-   - driver: postgres
-     conn_info:
-     modified: mergin_main
-     base: mergin_base
-     mergin_project: john/myproject
-     sync_file: sync.gpkg
-     skip_tables: [table1, table2]
-
-daemon:
-  sleep_time: 10
-```
