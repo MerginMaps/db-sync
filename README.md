@@ -45,22 +45,11 @@ DB Sync should be run using the `dbsync_daemon.py` script.
 
 1. set up configuration in config.yaml  (see config.yaml.default for a sample)
 
-2. run `dbsync_daemon.py`. There are several parameters to control the way the tool runs.
-
-   A. `config_file_name.yaml` The file name with path of yaml config can be provided. By default the `dbsync_daemon.py` loads `config.yaml` file.
-
-   B. `--force-init` forces reinitialization of the sync. Drops dbsync schemas from database and the sync file and inits them all from scratch. This should be used to fix issues with dbsync init.
-
-   C. `--single-run` instead of running the daemon indefinitely, performs just one single run. Such run consists of initialization, pull and push steps.
-
-   D. `--skip-init` allows skipping the initialization of sync step. Should be only used if you know, what you are doing, otherwise issues are likely to occur.
-
-   E. `--log-file` specify file to store log info into. If it is not set the log info will only be printed to the console.
-
-   F. `--log-verbosity` use `errors` or `messages` to specify what should be logged. Default is `messages`.
+2. run `dbsync_daemon.py`. There are several parameters to control the way the tool runs (see [Using DB Sync](docs/using.md))
 
 ## Documentation
 
 - [How to install](docs/install.md)
+- [Using DB Sync](docs/using.md)
 - [For developers](docs/development.md)
 
