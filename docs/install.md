@@ -10,6 +10,8 @@ TODO: example
 
 You can use `lutraconsulting/mergin-db-sync` container from Docker hub.
 
+The container can be used also on Windows, see [instructions on how to use with WSL](install_wsl.md), but generally it is recommended to use the executable linked above.
+
 TODO: example
 
 ## Manual build
