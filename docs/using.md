@@ -75,3 +75,21 @@ daemon:
 - `--log-file` specify file to store log info into. If it is not set the log info will only be printed to the console.
 
 - `--log-verbosity` use `errors` or `messages` to specify what should be logged. Default is `messages`.
+
+
+## Excluding tables from sync
+
+Sometimes in the database there are tables that should not be synchronised to Mergin Maps projects. It is possible to ignore
+these tables and not sync them. To do so add `skip_tables` setting to the corresponding `connections` entry in the config
+file:
+
+```yaml
+connections:
+   - driver: postgres
+     # ...
+     mergin_project: john/myproject
+     sync_file: sync.gpkg
+     skip_tables:
+      - table1
+      - table2
+```
