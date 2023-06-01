@@ -1,2 +1,2 @@
-mergin-client==0.7.4
+mergin-client>=0.8
 dynaconf>=3.1
