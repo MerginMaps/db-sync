@@ -1216,6 +1216,7 @@ def init(
 
         if modified_schema_exists and base_schema_exists:
             # if db schema already exists make sure it is already synchronized with source gpkg or fail
+            logging.debug("Checking 'modified' schema content...")
             summary_modified = _compare_datasets(
                 "sqlite",
                 "",
@@ -1225,6 +1226,7 @@ def init(
                 conn_cfg.modified,
                 ignored_tables,
             )
+            logging.debug("Checking 'base' schema content...")
             summary_base = _compare_datasets(
                 "sqlite",
                 "",
@@ -1333,6 +1335,7 @@ def init(
 
         if os.path.exists(gpkg_full_path) and base_schema_exists:
             # make sure output gpkg is in sync with db or fail
+            logging.debug("Checking GeoPackage content...")
             summary_modified = _compare_datasets(
                 conn_cfg.driver,
                 conn_cfg.conn_info,
@@ -1342,6 +1345,7 @@ def init(
                 gpkg_full_path,
                 ignored_tables,
             )
+            logging.debug("Checking 'base' schema content...")
             summary_base = _compare_datasets(
                 conn_cfg.driver,
                 conn_cfg.conn_info,
