@@ -1,5 +1,43 @@
 # Changelog
 
+## 2.0
+
+This is a major release with many improvements aiming towards better robustness and ease of use.
+
+We are starting to provide a Windows executable (#99) that can be used from terminal,
+so that Windows users do not need to worry about Docker or manual compilation anymore!
+
+- Minor changes in the YAML configuration file (#98):
+  - New required entry: `init_from` specifies whether the initialization is done from a database (`db`)
+    or from a GeoPackage in a Mergin Maps project (`gpkg`). Previously this was specified on the command
+    line when running the tool.
+  - Removed entries: `geodiff_exe` (now using geodiff from PATH) and `working_dir` (now using TEMP/dbsync)
+
+- Much easier way to restart synchronization (when the data schema has changed, or when initialization failed) - simply
+  add `--force-init` command line option to let db-sync do the cleanup (#16)
+
+- Configuration file can be specified on command line instead of the default `config.yaml` (#97)
+
+- Logging improvements
+  - Make it possible to log to a file (`--log-file <filename>`) and configure verbosity (`--log-verbosity WARNING`)
+  - Write output to standard error stream instead of standard output (#91)
+  - Avoid printing database passwords in the outputs (#108)
+
+- Robustness fixes and improvements
+  - Check that PostGIS extension is available on init (#113)
+  - Clean up database if initialization fails (#90, #95)
+  - Quote schema names correctly, e.g. when using upper case characters (#54)
+  - Use project ID to check that the project is the same (#76)
+  - Handle push errors to avoid broken sync (#60)
+  - Warn if the working dir exists but it is empty on init (#75)
+  - Provide better error messages
+
+- Infrastructure improvements:
+  - Documentation improvements
+  - Set up continuous integration to run tests (#8)
+  - Fix versions of py-client and geodiff (#92)
+  - Unified code formatting
+
 ## 1.1.2
 
 - Fixed increasing memory consumption (#78)
