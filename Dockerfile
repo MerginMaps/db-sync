@@ -35,8 +35,6 @@ COPY dbsync.py .
 COPY dbsync_daemon.py .
 COPY log_functions.py .
 
-# base DB sync config file (the rest is configured with env variables)
-COPY config-dockerfile.yaml ./config.yaml
 ENV PATH="${PATH}:/geodiff/build"
 
 ENTRYPOINT ["python3", "dbsync_daemon.py"]

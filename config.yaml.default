@@ -1,18 +1,31 @@
+# How to connect to Mergin Maps server
 mergin:
   url: https://app.merginmaps.com
   username: john
   password: mysecret
 
+# How to initialize the sync - one of the two options:
+# - "gpkg" - use existing GeoPackage from given Mergin Maps project (and create database schema during init)
+# - "db" - use existing database schema (and create GeoPackage in Mergin Maps project during init)
 init_from: gpkg
 
 connections:
    - driver: postgres
-     conn_info:
-     modified: mergin_main
-     base: mergin_base
+     # Parameters to PostgreSQL database
+     conn_info: "host=localhost dbname=mydb user=myuser password=mypassword"
+     # Database schema that will be synchronized with Mergin Maps project
+     # (it must exist if doing init from database, it must not exist if doing init from geopackage)
+     modified: myproject_data
+     # Extra database schema that will contain internal data and should never be edited
+     # (it must not exist before the sync starts - it will be created automatically)
+     base: myproject_data_base
+
+     # Mergin Maps project to use (<workspace>/<project>)
      mergin_project: john/myproject
-     sync_file: sync.gpkg
-     skip_tables: []
+     # Path to the GeoPackage within the Mergin Maps project above
+     # (it must exist if doing init from geopackage, it must not exist if doing init from database)
+     sync_file: data.gpkg
 
 daemon:
+  # How often to synchronize (in seconds)
   sleep_time: 10
