@@ -20,13 +20,11 @@ $ psql -h localhost -d dbsync -U postgres -f sample_data/test_data.sql
 
 ## 2. Create an empty Mergin Maps project
 
-Go to [Mergin Maps](https://app.merginmaps.com/) website and create a new blank project.
+Go to [Mergin Maps](https://app.merginmaps.com/) website and create a new blank project (and call it e.g. `db-sync`):
 
 ![new_project](images/new_proj0.png)
 
-![new_project](images/new_proj1.png)
-
-You should see there are not any files there.
+Once the project page opens, you should see there are not any files there:
 
 ![new_project_2](images/new_proj2.png)
 
