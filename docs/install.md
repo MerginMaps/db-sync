@@ -2,7 +2,7 @@
 
 ## Windows executable
 
-For Windows we provide pre-built exe file for [download](fill-link).
+For Windows we provide pre-built exe file for download since version 2.0 - there are [download links attached to releases](https://github.com/MerginMaps/mergin-db-sync/releases).
 
 To run the tool, open the terminal and run the executable with your config file (`config.yaml`):
 
