@@ -22,7 +22,9 @@ $ psql -h localhost -d dbsync -U postgres -f sample_data/test_data.sql
 
 Go to [Mergin Maps](https://app.merginmaps.com/) website and create a new blank project.
 
-![new_project](images/new_proj.png)
+![new_project](images/new_proj0.png)
+
+![new_project](images/new_proj1.png)
 
 You should see there are not any files there.
 
