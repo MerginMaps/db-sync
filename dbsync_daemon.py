@@ -170,7 +170,7 @@ def main():
                     mc = dbsync.create_mergin_client()
 
             except dbsync.DbSyncError as e:
-                handle_error_and_exit(e)
+                logging.error(str(e))
 
             logging.debug("Going to sleep")
             time.sleep(sleep_time)
