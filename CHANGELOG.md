@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1
+
+- Do not stop sync after a temporary network/server issue (#124)
+- Clean up temporary files in the .mergin folder (#52)
+
 ## 2.0
 
 This is a major release with many improvements aiming towards better robustness and ease of use.
