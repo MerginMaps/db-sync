@@ -13,6 +13,8 @@ import platform
 import tempfile
 import pathlib
 import subprocess
+import smtplib
+import socket
 
 config = Dynaconf(
     envvar_prefix=False,
@@ -99,6 +101,43 @@ def validate_config(config):
                 list,
             ):
                 raise ConfigError("Config error: Ignored tables parameter should be a list")
+
+    if "notification" in config:
+        settings = [
+            "smtp_server",
+            "smtp_username",
+            "smtp_password",
+            "email_sender",
+            "email_subject",
+            "email_recipients",
+        ]
+
+        for setting in settings:
+            if setting not in config.notification:
+                raise ConfigError(f"Config error: `{setting}` is missing from `notification`.")
+
+        if not isinstance(config.notification.email_recipients, list):
+            raise ConfigError("Config error: `email_recipients` should be list of address.")
+
+        smtp_conn: smtplib.SMTP = None
+
+        try:
+            smtp_conn = smtplib.SMTP(config.notification.smtp_server)
+        except socket.gaierror:
+            raise ConfigError(f"Config error: Cannot connect to SMTP server: `{config.notification.smtp_server}`.")
+
+        try:
+            smtp_conn.login(config.notification.smtp_username, config.notification.smtp_password)
+        except smtplib.SMTPAuthenticationError:
+            raise ConfigError(
+                f"Config error: Cannot login to SMTP server with user: `{config.notification.smtp_username}` and a specified password."
+            )
+
+
+def can_send_email(config: Dynaconf) -> bool:
+    if "notification" in config:
+        return True
+    return False
 
 
 def get_ignored_tables(

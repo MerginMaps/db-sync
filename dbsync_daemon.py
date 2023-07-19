@@ -21,9 +21,10 @@ from config import (
     validate_config,
     ConfigError,
     update_config_path,
+    can_send_email,
 )
 
-from log_functions import setup_logger, handle_error_and_exit
+from log_functions import setup_logger, handle_error_and_exit, send_email
 
 
 def is_pyinstaller() -> bool:
@@ -171,6 +172,8 @@ def main():
 
             except dbsync.DbSyncError as e:
                 logging.error(str(e))
+                if can_send_email(config):
+                    send_email(str(e), datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
 
             logging.debug("Going to sleep")
             time.sleep(sleep_time)

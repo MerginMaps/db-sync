@@ -2,6 +2,11 @@ import logging
 import pathlib
 import sys
 import typing
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+from config import config
 
 
 def filter_below_error(record):
@@ -47,3 +52,22 @@ def log_verbosity_to_logging(verbosity: str):
 def handle_error_and_exit(error: typing.Union[str, Exception]):
     logging.error(str(error))
     sys.exit(1)
+
+
+def send_email(error: str, date_time: str = None) -> None:
+    smtp_conn = smtplib.SMTP(config.notification.smtp_server)
+    smtp_conn.login(config.notification.smtp_username, config.notification.smtp_password)
+
+    msg = MIMEMultipart()
+    msg["Subject"] = config.notification.email_subject
+    msg["From"] = config.notification.email_sender
+    msg["To"] = ", ".join(config.notification.email_recipients)
+    msg.preamble = error
+
+    if date_time:
+        error = f"{date_time}: {error}"
+
+    msg.attach(MIMEText(error, "plain"))
+
+    smtp_conn.sendmail(config.notification.smtp_username, config.notification.email_recipients, msg.as_string())
+    smtp_conn.quit()
