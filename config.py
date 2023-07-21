@@ -117,7 +117,7 @@ def validate_config(config):
                 raise ConfigError(f"Config error: `{setting}` is missing from `notification`.")
 
         if not isinstance(config.notification.email_recipients, list):
-            raise ConfigError("Config error: `email_recipients` should be list of address.")
+            raise ConfigError("Config error: `email_recipients` should be list of addresses.")
 
         smtp_conn: smtplib.SMTP = None
 
