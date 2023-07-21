@@ -13,6 +13,7 @@ from config import (
     validate_config,
     get_ignored_tables,
 )
+from log_functions import can_send_email
 
 from .conftest import (
     _reset_config,
@@ -256,3 +257,60 @@ def test_get_ignored_tables():
     validate_config(config)
     ignored_tables = get_ignored_tables(config.connections[0])
     assert ignored_tables == ["table"]
+
+
+def test_config_notification_setup():
+    _reset_config()
+
+    # no NOTIFICATIONS set should pass but cannot send email
+    validate_config(config)
+    assert can_send_email(config) is False
+
+    # incomplete setting
+    config.update(
+        {
+            "NOTIFICATION": {
+                "smtp_server": "server",
+                "smtp_username": "user",
+            }
+        }
+    )
+
+    with pytest.raises(ConfigError, match="Config error: `smtp_password`"):
+        validate_config(config)
+
+    # another incomplete setting
+    _reset_config()
+
+    config.update(
+        {
+            "NOTIFICATION": {
+                "smtp_server": "server",
+                "smtp_username": "user",
+                "smtp_password": "pass",
+            }
+        }
+    )
+
+    with pytest.raises(ConfigError, match="Config error: `email_sender`"):
+        validate_config(config)
+
+    # complete setting but does not work
+    config.update(
+        {
+            "NOTIFICATION": {
+                "smtp_server": "server",
+                "smtp_username": "user",
+                "smtp_password": "pass",
+                "email_sender": "dbsync@sync.com",
+                "email_subject": "DB Sync Error",
+                "email_recipients": ["recipient1@test.com", "recipient2@test.com"],
+            }
+        }
+    )
+
+    with pytest.raises(ConfigError, match="Config error: Cannot connect to SMTP server"):
+        validate_config(config)
+
+    # notifications are set, emails can be send - but this config was not validated, as it would be in real run
+    assert can_send_email(config)
