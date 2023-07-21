@@ -21,10 +21,14 @@ from config import (
     validate_config,
     ConfigError,
     update_config_path,
-    can_send_email,
 )
 
-from log_functions import setup_logger, handle_error_and_exit, send_email
+from log_functions import (
+    setup_logger,
+    handle_error_and_exit,
+    send_email,
+    can_send_email,
+)
 
 
 def is_pyinstaller() -> bool:

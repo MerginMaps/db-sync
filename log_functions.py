@@ -6,6 +6,8 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+from dynaconf import Dynaconf
+
 from config import config
 
 
@@ -71,3 +73,9 @@ def send_email(error: str, date_time: str = None) -> None:
 
     smtp_conn.sendmail(config.notification.smtp_username, config.notification.email_recipients, msg.as_string())
     smtp_conn.quit()
+
+
+def can_send_email(config: Dynaconf) -> bool:
+    if "notification" in config:
+        return True
+    return False

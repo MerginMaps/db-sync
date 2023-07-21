@@ -134,12 +134,6 @@ def validate_config(config):
             )
 
 
-def can_send_email(config: Dynaconf) -> bool:
-    if "notification" in config:
-        return True
-    return False
-
-
 def get_ignored_tables(
     connection,
 ):
