@@ -153,6 +153,8 @@ def main():
             handle_error_and_exit(e)
 
     else:
+        error_msg = None
+
         if not args.skip_init:
             try:
                 dbsync.dbsync_init(mc)
@@ -176,8 +178,9 @@ def main():
 
             except dbsync.DbSyncError as e:
                 logging.error(str(e))
-                if can_send_email(config):
+                if can_send_email(config) and error_msg != str(e):
                     send_email(str(e), datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+                    error_msg = str(e)
 
             logging.debug("Going to sleep")
             time.sleep(sleep_time)
