@@ -13,22 +13,10 @@ import os
 import pathlib
 
 import dbsync
-from version import (
-    __version__,
-)
-from config import (
-    config,
-    validate_config,
-    ConfigError,
-    update_config_path,
-)
-
-from log_functions import (
-    setup_logger,
-    handle_error_and_exit,
-    send_email,
-    can_send_email,
-)
+from config import ConfigError, config, update_config_path, validate_config
+from log_functions import handle_error_and_exit, setup_logger
+from smtp_functions import can_send_email, send_email
+from version import __version__
 
 
 def is_pyinstaller() -> bool:
@@ -179,7 +167,7 @@ def main():
             except dbsync.DbSyncError as e:
                 logging.error(str(e))
                 if can_send_email(config) and error_msg != str(e):
-                    send_email(str(e), datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+                    send_email(str(e), config)
                     error_msg = str(e)
 
             logging.debug("Going to sleep")
