@@ -105,8 +105,6 @@ def validate_config(config):
     if "notification" in config:
         settings = [
             "smtp_server",
-            "smtp_username",
-            "smtp_password",
             "email_sender",
             "email_subject",
             "email_recipients",
