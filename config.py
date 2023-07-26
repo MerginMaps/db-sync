@@ -123,14 +123,15 @@ def validate_config(config):
 
         try:
             smtp_conn = smtplib.SMTP(config.notification.smtp_server)
-        except socket.gaierror:
+        except OSError:
             raise ConfigError(f"Config error: Cannot connect to SMTP server: `{config.notification.smtp_server}`.")
 
         try:
             smtp_conn.login(config.notification.smtp_username, config.notification.smtp_password)
-        except smtplib.SMTPAuthenticationError:
+        except smtplib.SMTPAuthenticationError as e:
             raise ConfigError(
                 f"Config error: Cannot login to SMTP server with user: `{config.notification.smtp_username}` and a specified password."
+                f"SMTP Error: {str(e.smtp_error)}."
             )
 
 
