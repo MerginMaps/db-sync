@@ -1,8 +1,7 @@
 import datetime
 import smtplib
 import typing
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from email.message import EmailMessage
 
 from dynaconf import Dynaconf
 
@@ -33,17 +32,16 @@ def send_email(error: str, config: Dynaconf) -> None:
 
     log_smtp_user(smtp_conn, config)
 
-    msg = MIMEMultipart()
+    msg = EmailMessage()
     msg["Subject"] = config.notification.email_subject
     msg["From"] = config.notification.email_sender
     msg["To"] = ", ".join(config.notification.email_recipients)
-    msg.preamble = error
 
     date_time = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
     error = f"{date_time}: {error}"
 
-    msg.attach(MIMEText(error, "plain"))
+    msg.set_content(error)
 
     sender_email = config.notification.email_sender
     if "smtp_username" in config.notification:
