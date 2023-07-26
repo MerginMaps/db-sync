@@ -16,6 +16,8 @@ import subprocess
 import smtplib
 import socket
 
+from smtp_functions import create_connection, log_smtp_user
+
 config = Dynaconf(
     envvar_prefix=False,
     settings_files=[],
