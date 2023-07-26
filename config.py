@@ -121,15 +121,16 @@ def validate_config(config):
 
         if "use_ssl" in config.notification:
             if not isinstance(config.notification.use_ssl, bool):
-                raise ConfigError("`use_ssl` must be set to either `true` or `false`.")
+                raise ConfigError("Config error: `use_ssl` must be set to either `true` or `false`.")
 
         if "use_tls" in config.notification:
             if not isinstance(config.notification.use_tls, bool):
-                raise ConfigError("`use_tls` must be set to either `true` or `false`.")
+                raise ConfigError("Config error: `use_tls` must be set to either `true` or `false`.")
 
         if "smtp_port" in config.notification:
             if not isinstance(config.notification.smtp_port, int):
-                raise ConfigError("`smtp_port` must be set an integer.")
+                raise ConfigError("Config error: `smtp_port` must be set an integer.")
+
 
         smtp_conn: smtplib.SMTP = None
 

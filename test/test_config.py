@@ -306,7 +306,7 @@ def test_config_notification_setup():
         }
     )
 
-    with pytest.raises(ConfigError, match="`use_ssl` must be set to either `true` or `false`"):
+    with pytest.raises(ConfigError, match="Config error: `use_ssl` must be set to either `true` or `false`"):
         validate_config(config)
 
     # int variable test
@@ -326,7 +326,7 @@ def test_config_notification_setup():
         }
     )
 
-    with pytest.raises(ConfigError, match="`smtp_port` must be set an integer"):
+    with pytest.raises(ConfigError, match="Config error: `smtp_port` must be set an integer"):
         validate_config(config)
     # complete setting but does not work
     config.update(
