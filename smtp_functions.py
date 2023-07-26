@@ -27,28 +27,41 @@ def log_smtp_user(host: typing.Union[smtplib.SMTP_SSL, smtplib.SMTP], config: Dy
         host.login(config.notification.smtp_username, config.notification.smtp_password)
 
 
-def send_email(error: str, config: Dynaconf) -> None:
-    smtp_conn = create_connection(config)
+def should_send_another_email(
+    current_time: datetime.datetime, last_email_send: typing.Optional[datetime.datetime], config: Dynaconf
+) -> bool:
+    if last_email_send is None:
+        return True
+    min_time_diff = config.notification.minimal_email_interval if "minimal_email_interval" in config.notification else 4
+    time_diff = current_time - last_email_send
+    return time_diff.seconds > (min_time_diff * 3600)
 
-    log_smtp_user(smtp_conn, config)
 
-    msg = EmailMessage()
-    msg["Subject"] = config.notification.email_subject
-    msg["From"] = config.notification.email_sender
-    msg["To"] = ", ".join(config.notification.email_recipients)
+def send_email(error: str, last_email_send: typing.Optional[datetime.datetime], config: Dynaconf) -> None:
+    current_time = datetime.datetime.now()
 
-    date_time = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    if should_send_another_email(current_time, last_email_send, config):
+        smtp_conn = create_connection(config)
 
-    error = f"{date_time}: {error}"
+        log_smtp_user(smtp_conn, config)
 
-    msg.set_content(error)
+        msg = EmailMessage()
+        msg["Subject"] = config.notification.email_subject
+        msg["From"] = config.notification.email_sender
+        msg["To"] = ", ".join(config.notification.email_recipients)
 
-    sender_email = config.notification.email_sender
-    if "smtp_username" in config.notification:
-        sender_email = config.notification.smtp_username
+        date_time = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-    smtp_conn.sendmail(sender_email, config.notification.email_recipients, msg.as_string())
-    smtp_conn.quit()
+        error = f"{date_time}: {error}"
+
+        msg.set_content(error)
+
+        sender_email = config.notification.email_sender
+        if "smtp_username" in config.notification:
+            sender_email = config.notification.smtp_username
+
+        smtp_conn.sendmail(sender_email, config.notification.email_recipients, msg.as_string())
+        smtp_conn.quit()
 
 
 def can_send_email(config: Dynaconf) -> bool:

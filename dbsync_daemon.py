@@ -159,6 +159,8 @@ def main():
             except dbsync.DbSyncError as e:
                 handle_error_and_exit(e)
 
+        last_email_send = None
+
         while True:
             print(datetime.datetime.now())
 
@@ -176,9 +178,9 @@ def main():
 
             except dbsync.DbSyncError as e:
                 logging.error(str(e))
-                if can_send_email(config) and error_msg != str(e):
-                    send_email(str(e), config)
-                    error_msg = str(e)
+                if can_send_email(config):
+                    send_email(str(e), last_email_send, config)
+                    last_email_send = datetime.datetime.now()
 
             logging.debug("Going to sleep")
             time.sleep(sleep_time)
