@@ -132,17 +132,16 @@ def validate_config(config):
         smtp_conn: smtplib.SMTP = None
 
         try:
-            smtp_conn = smtplib.SMTP(config.notification.smtp_server)
+            smtp_conn = create_connection(config)
         except OSError:
             raise ConfigError(f"Config error: Cannot connect to SMTP server: `{config.notification.smtp_server}`.")
 
         try:
-            smtp_conn.login(config.notification.smtp_username, config.notification.smtp_password)
+            log_smtp_user(smtp_conn, config)
         except smtplib.SMTPAuthenticationError as e:
-            raise ConfigError(
-                f"Config error: Cannot login to SMTP server with user: `{config.notification.smtp_username}` and a specified password."
-                f"SMTP Error: {str(e.smtp_error)}."
-            )
+            raise ConfigError(f"Config SMTP Error: {str(e.smtp_error)}.")
+
+        smtp_conn.quit()
 
 
 def get_ignored_tables(
