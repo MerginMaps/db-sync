@@ -117,7 +117,7 @@ def validate_config(config):
                 raise ConfigError(f"Config error: `{setting}` is missing from `notification`.")
 
         if not isinstance(config.notification.email_recipients, list):
-            raise ConfigError("Config error: `email_recipients` should be list of addresses.")
+            raise ConfigError("Config error: `email_recipients` should be a list of addresses.")
 
         if "use_ssl" in config.notification:
             if not isinstance(config.notification.use_ssl, bool):
