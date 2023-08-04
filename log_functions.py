@@ -3,10 +3,6 @@ import pathlib
 import sys
 import typing
 
-from dynaconf import Dynaconf
-
-from config import config
-
 
 def filter_below_error(record):
     """Only lets through log messages with log level below ERROR ."""
