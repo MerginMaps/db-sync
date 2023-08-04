@@ -29,18 +29,3 @@ connections:
 daemon:
   # How often to synchronize (in seconds)
   sleep_time: 10
-
-# optional setting, if you do not want notifications on sync errors to be send via email just delete this section
-notification:
-  # address of stmp server to send emails
-  smtp_server: "xxx.xxx"
-  # smtp server user
-  smtp_username: "user@email.xxx"
-  # smtp user's password
-  smtp_password: "password"
-  # email sender to be displayed in the message
-  email_sender: "dbsync@info.com"
-  # email subject
-  email_subject: "DB Sync Error"
-  # list of recipients of the email notification
-  email_recipients: ["recipient1@email.xxx", "recipient1@email.xxx"]

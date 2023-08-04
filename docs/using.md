@@ -76,6 +76,7 @@ daemon:
 
 - `--log-verbosity` use `errors` or `messages` to specify what should be logged. Default is `messages`.
 
+- `--test-notification-email` used to test send notification email (see below for details about sending emails in case of sync fails)
 
 ## Excluding tables from sync
 
@@ -92,4 +93,37 @@ connections:
      skip_tables:
       - table1
       - table2
+```
+
+## Sending emails in case of synchronization fail
+
+User can be notified about sync fails via email by including `notification` with proper setting in the config file
+
+The command line option `--test-notification-email` can be used to only send the notification email without running the daemon. This should be useful to test the `notification` settings setup.
+
+```yaml
+# optional setting, if you do not want notifications on sync errors to be send via email just delete this section
+notification:
+  # first four options are required to be present 
+  # address of stmp server to send emails
+  smtp_server: "xxx.xxx"
+   # email sender to be displayed in the message
+  email_sender: "dbsync@info.com"
+  # email subject
+  email_subject: "DB Sync Error"
+  # list of recipients of the email notification
+  email_recipients: ["recipient1@email.xxx", "recipient1@email.xxx"]
+  # the following configuration is optional and does not need to be specified
+  # smtp server user
+  smtp_username: "user@email.xxx"
+  # smtp user's password
+  smtp_password: "password"
+  # smtp port
+  smtp_port: 25
+  # use ssl true/false
+  use_ssl: false
+  # use tls true/false
+  use_tls: false
+  # minimal interval for sending emails in hours (default value is 4) to avoid sending too many emails
+  minimal_email_interval: 4
 ```
