@@ -9,7 +9,6 @@ License: MIT
 import pathlib
 import platform
 import smtplib
-import socket
 import subprocess
 import tempfile
 
