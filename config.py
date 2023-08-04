@@ -129,7 +129,7 @@ def validate_config(config):
 
         if "smtp_port" in config.notification:
             if not isinstance(config.notification.smtp_port, int):
-                raise ConfigError("Config error: `smtp_port` must be set an integer.")
+                raise ConfigError("Config error: `smtp_port` must be set to an integer.")
 
         if "minimal_email_interval" in config.notification:
             if not isinstance(config.notification.minimal_email_interval, (int, float)):
