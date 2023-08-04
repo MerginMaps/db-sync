@@ -10,7 +10,7 @@ def create_connection(config: Dynaconf) -> typing.Union[smtplib.SMTP_SSL, smtpli
     if "smtp_port" in config.notification:
         port = config.notification.smtp_port
     else:
-        port = smtplib.SMTP_PORT
+        port = 0
 
     if "use_ssl" in config.notification and config.notification.use_ssl:
         host = smtplib.SMTP_SSL(config.notification.smtp_server, port)
