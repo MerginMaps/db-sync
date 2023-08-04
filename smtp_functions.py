@@ -43,8 +43,6 @@ def send_email(error: str, last_email_send: typing.Optional[datetime.datetime], 
     current_time = datetime.datetime.now()
 
     if should_send_another_email(current_time, last_email_send, config):
-        smtp_conn = create_connection_and_log_user(config)
-
         msg = EmailMessage()
         msg["Subject"] = config.notification.email_subject
         msg["From"] = config.notification.email_sender
@@ -60,8 +58,12 @@ def send_email(error: str, last_email_send: typing.Optional[datetime.datetime], 
         if "smtp_username" in config.notification:
             sender_email = config.notification.smtp_username
 
-        smtp_conn.sendmail(sender_email, config.notification.email_recipients, msg.as_string())
-        smtp_conn.quit()
+        try:
+            smtp_conn = create_connection_and_log_user(config)
+            smtp_conn.sendmail(sender_email, config.notification.email_recipients, msg.as_string())
+            smtp_conn.quit()
+        except:
+            pass
 
 
 def can_send_email(config: Dynaconf) -> bool:
