@@ -28,12 +28,12 @@ def log_smtp_user(host: typing.Union[smtplib.SMTP_SSL, smtplib.SMTP], config: Dy
 
 
 def should_send_another_email(
-    current_time: datetime.datetime, last_email_send: typing.Optional[datetime.datetime], config: Dynaconf
+    current_time: datetime.datetime, last_email_sent: typing.Optional[datetime.datetime], config: Dynaconf
 ) -> bool:
-    if last_email_send is None:
+    if last_email_sent is None:
         return True
     min_time_diff = config.notification.minimal_email_interval if "minimal_email_interval" in config.notification else 4
-    time_diff = current_time - last_email_send
+    time_diff = current_time - last_email_sent
     return time_diff.seconds > (min_time_diff * 3600)
 
 
