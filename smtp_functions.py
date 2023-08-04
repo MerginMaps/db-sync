@@ -7,6 +7,7 @@ from dynaconf import Dynaconf
 
 
 def create_connection_and_log_user(config: Dynaconf) -> typing.Union[smtplib.SMTP_SSL, smtplib.SMTP]:
+    """Create connection and log user to the SMTP server using the configuration in config."""
     if "smtp_port" in config.notification:
         port = config.notification.smtp_port
     else:
@@ -28,6 +29,8 @@ def create_connection_and_log_user(config: Dynaconf) -> typing.Union[smtplib.SMT
 def should_send_another_email(
     current_time: datetime.datetime, last_email_sent: typing.Optional[datetime.datetime], config: Dynaconf
 ) -> bool:
+    """Checks if another email should be sent. The time difference to last sent email needs to larger them
+    minimal interval specified in config or 4 hours if no value was specified."""
     if last_email_sent is None:
         return True
     min_time_diff = config.notification.minimal_email_interval if "minimal_email_interval" in config.notification else 4
@@ -36,6 +39,7 @@ def should_send_another_email(
 
 
 def send_email(error: str, last_email_send: typing.Optional[datetime.datetime], config: Dynaconf) -> None:
+    """Sends email with provided error using the settings in config."""
     current_time = datetime.datetime.now()
 
     if should_send_another_email(current_time, last_email_send, config):
@@ -61,6 +65,7 @@ def send_email(error: str, last_email_send: typing.Optional[datetime.datetime], 
 
 
 def can_send_email(config: Dynaconf) -> bool:
+    """Checks if notification settings is in the config and emails can be send."""
     if "notification" in config:
         return True
     return False
