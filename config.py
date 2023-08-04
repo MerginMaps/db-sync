@@ -6,15 +6,14 @@ Copyright (C) 2022 Lutra Consulting
 License: MIT
 """
 
-from dynaconf import (
-    Dynaconf,
-)
-import platform
-import tempfile
 import pathlib
-import subprocess
+import platform
 import smtplib
 import socket
+import subprocess
+import tempfile
+
+from dynaconf import Dynaconf
 
 from smtp_functions import create_connection_and_log_user
 
