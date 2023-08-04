@@ -6,7 +6,7 @@ from email.message import EmailMessage
 from dynaconf import Dynaconf
 
 
-def create_connection(config: Dynaconf) -> typing.Union[smtplib.SMTP_SSL, smtplib.SMTP]:
+def create_connection_and_log_user(config: Dynaconf) -> typing.Union[smtplib.SMTP_SSL, smtplib.SMTP]:
     if "smtp_port" in config.notification:
         port = config.notification.smtp_port
     else:
@@ -17,14 +17,12 @@ def create_connection(config: Dynaconf) -> typing.Union[smtplib.SMTP_SSL, smtpli
     else:
         host = smtplib.SMTP(config.notification.smtp_server, port)
 
-    return host
-
-
-def log_smtp_user(host: typing.Union[smtplib.SMTP_SSL, smtplib.SMTP], config: Dynaconf) -> None:
     if "use_tls" in config.notification and config.notification.use_tls:
         host.starttls()
     if config.notification.smtp_username and config.notification.smtp_password:
         host.login(config.notification.smtp_username, config.notification.smtp_password)
+
+    return host
 
 
 def should_send_another_email(
@@ -41,9 +39,7 @@ def send_email(error: str, last_email_send: typing.Optional[datetime.datetime], 
     current_time = datetime.datetime.now()
 
     if should_send_another_email(current_time, last_email_send, config):
-        smtp_conn = create_connection(config)
-
-        log_smtp_user(smtp_conn, config)
+        smtp_conn = create_connection_and_log_user(config)
 
         msg = EmailMessage()
         msg["Subject"] = config.notification.email_subject

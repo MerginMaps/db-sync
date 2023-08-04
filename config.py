@@ -16,7 +16,7 @@ import subprocess
 import smtplib
 import socket
 
-from smtp_functions import create_connection, log_smtp_user
+from smtp_functions import create_connection_and_log_user
 
 config = Dynaconf(
     envvar_prefix=False,
@@ -135,19 +135,14 @@ def validate_config(config):
             if not isinstance(config.notification.minimal_email_interval, (int, float)):
                 raise ConfigError("Config error: `minimal_email_interval` must be set to a number.")
 
-        smtp_conn: smtplib.SMTP = None
-
         try:
-            smtp_conn = create_connection(config)
-        except OSError:
-            raise ConfigError(f"Config error: Cannot connect to SMTP server: `{config.notification.smtp_server}`.")
-
-        try:
-            log_smtp_user(smtp_conn, config)
-        except smtplib.SMTPAuthenticationError as e:
-            raise ConfigError(f"Config SMTP Error: {str(e.smtp_error)}.")
-
-        smtp_conn.quit()
+            smtp_conn = create_connection_and_log_user(config)
+            smtp_conn.quit()
+        except (OSError, smtplib.SMTPConnectError, smtplib.SMTPAuthenticationError) as e:
+            err = str(e)
+            if isinstance(e, (smtplib.SMTPConnectError, smtplib.SMTPAuthenticationError)):
+                err = str(e.smtp_error)
+            raise ConfigError(f"Config SMTP Error: {err}.")
 
 
 def get_ignored_tables(

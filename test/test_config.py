@@ -345,7 +345,7 @@ def test_config_notification_setup():
         }
     )
 
-    with pytest.raises(ConfigError, match="Config error: Cannot connect to SMTP server"):
+    with pytest.raises(ConfigError, match="Config SMTP Error"):
         validate_config(config)
 
     # notifications are set, emails can be send - but this config was not validated, as it would be in real run
