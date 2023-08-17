@@ -3,27 +3,20 @@
 # - pull
 # - push
 
-import datetime
-import sys
-import time
 import argparse
-import platform
+import datetime
 import logging
 import os
 import pathlib
+import platform
+import sys
+import time
 
 import dbsync
-from version import (
-    __version__,
-)
-from config import (
-    config,
-    validate_config,
-    ConfigError,
-    update_config_path,
-)
-
-from log_functions import setup_logger, handle_error_and_exit
+from config import ConfigError, config, update_config_path, validate_config
+from log_functions import handle_error_and_exit, setup_logger
+from smtp_functions import can_send_email, send_email
+from version import __version__
 
 
 def is_pyinstaller() -> bool:
@@ -98,6 +91,11 @@ def main():
         default="DEBUG",
         help="Set level of logging into log-file.",
     )
+    parser.add_argument(
+        "--test-notification-email",
+        action="store_true",
+        help="Send test notification email using the `notification` settings. Should be used to validate settings.",
+    )
 
     args = parser.parse_args()
 
@@ -119,6 +117,11 @@ def main():
         validate_config(config)
     except ConfigError as e:
         handle_error_and_exit(e)
+
+    if args.test_notification_email:
+        send_email("Mergin DB Sync test email.", config)
+        logging.debug("Email sent!")
+        sys.exit(0)
 
     if args.force_init and args.skip_init:
         handle_error_and_exit("Cannot use `--force-init` with `--skip-init` Initialization is required. ")
@@ -148,11 +151,15 @@ def main():
             handle_error_and_exit(e)
 
     else:
+        error_msg = None
+
         if not args.skip_init:
             try:
                 dbsync.dbsync_init(mc)
             except dbsync.DbSyncError as e:
                 handle_error_and_exit(e)
+
+        last_email_send = None
 
         while True:
             print(datetime.datetime.now())
@@ -171,6 +178,9 @@ def main():
 
             except dbsync.DbSyncError as e:
                 logging.error(str(e))
+                if can_send_email(config):
+                    send_email(str(e), last_email_send, config)
+                    last_email_send = datetime.datetime.now()
 
             logging.debug("Going to sleep")
             time.sleep(sleep_time)

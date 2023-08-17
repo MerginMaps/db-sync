@@ -6,13 +6,15 @@ Copyright (C) 2022 Lutra Consulting
 License: MIT
 """
 
-from dynaconf import (
-    Dynaconf,
-)
-import platform
-import tempfile
 import pathlib
+import platform
+import smtplib
 import subprocess
+import tempfile
+
+from dynaconf import Dynaconf
+
+from smtp_functions import create_connection_and_log_user
 
 config = Dynaconf(
     envvar_prefix=False,
@@ -99,6 +101,46 @@ def validate_config(config):
                 list,
             ):
                 raise ConfigError("Config error: Ignored tables parameter should be a list")
+
+    if "notification" in config:
+        settings = [
+            "smtp_server",
+            "email_sender",
+            "email_subject",
+            "email_recipients",
+        ]
+
+        for setting in settings:
+            if setting not in config.notification:
+                raise ConfigError(f"Config error: `{setting}` is missing from `notification`.")
+
+        if not isinstance(config.notification.email_recipients, list):
+            raise ConfigError("Config error: `email_recipients` should be a list of addresses.")
+
+        if "use_ssl" in config.notification:
+            if not isinstance(config.notification.use_ssl, bool):
+                raise ConfigError("Config error: `use_ssl` must be set to either `true` or `false`.")
+
+        if "use_tls" in config.notification:
+            if not isinstance(config.notification.use_tls, bool):
+                raise ConfigError("Config error: `use_tls` must be set to either `true` or `false`.")
+
+        if "smtp_port" in config.notification:
+            if not isinstance(config.notification.smtp_port, int):
+                raise ConfigError("Config error: `smtp_port` must be set to an integer.")
+
+        if "minimal_email_interval" in config.notification:
+            if not isinstance(config.notification.minimal_email_interval, (int, float)):
+                raise ConfigError("Config error: `minimal_email_interval` must be set to a number.")
+
+        try:
+            smtp_conn = create_connection_and_log_user(config)
+            smtp_conn.quit()
+        except (OSError, smtplib.SMTPConnectError, smtplib.SMTPAuthenticationError) as e:
+            err = str(e)
+            if isinstance(e, (smtplib.SMTPConnectError, smtplib.SMTPAuthenticationError)):
+                err = str(e.smtp_error)
+            raise ConfigError(f"Config SMTP Error: {err}.")
 
 
 def get_ignored_tables(

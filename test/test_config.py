@@ -7,16 +7,10 @@ License: MIT
 """
 import pytest
 
-from config import (
-    config,
-    ConfigError,
-    validate_config,
-    get_ignored_tables,
-)
+from config import ConfigError, config, get_ignored_tables, validate_config
+from smtp_functions import can_send_email
 
-from .conftest import (
-    _reset_config,
-)
+from .conftest import _reset_config
 
 
 def test_config():
@@ -256,3 +250,103 @@ def test_get_ignored_tables():
     validate_config(config)
     ignored_tables = get_ignored_tables(config.connections[0])
     assert ignored_tables == ["table"]
+
+
+def test_config_notification_setup():
+    _reset_config()
+
+    # no NOTIFICATIONS set should pass but cannot send email
+    validate_config(config)
+    assert can_send_email(config) is False
+
+    # incomplete setting
+    config.update(
+        {
+            "NOTIFICATION": {
+                "smtp_server": "server",
+                "smtp_username": "user",
+            }
+        }
+    )
+
+    with pytest.raises(ConfigError, match="Config error: `email_sender`"):
+        validate_config(config)
+
+    # another incomplete setting
+    _reset_config()
+
+    config.update(
+        {
+            "NOTIFICATION": {
+                "smtp_server": "server",
+                "smtp_username": "user",
+                "smtp_password": "pass",
+                "email_sender": "dbsync@info.com",
+            }
+        }
+    )
+
+    with pytest.raises(ConfigError, match="Config error: `email_subject`"):
+        validate_config(config)
+
+    # bool variable test
+    _reset_config()
+
+    config.update(
+        {
+            "NOTIFICATION": {
+                "smtp_server": "server",
+                "smtp_username": "user",
+                "smtp_password": "pass",
+                "email_sender": "dbsync@info.com",
+                "email_subject": "DB Sync Error",
+                "email_recipients": ["recipient1@test.com", "recipient2@test.com"],
+                "use_ssl": "some_string",
+            }
+        }
+    )
+
+    with pytest.raises(ConfigError, match="Config error: `use_ssl` must be set to either `true` or `false`"):
+        validate_config(config)
+
+    # int variable test
+    _reset_config()
+
+    config.update(
+        {
+            "NOTIFICATION": {
+                "smtp_server": "server",
+                "smtp_username": "user",
+                "smtp_password": "pass",
+                "email_sender": "dbsync@info.com",
+                "email_subject": "DB Sync Error",
+                "email_recipients": ["recipient1@test.com", "recipient2@test.com"],
+                "smtp_port": "some_string",
+            }
+        }
+    )
+
+    with pytest.raises(ConfigError, match="Config error: `smtp_port` must be set an integer"):
+        validate_config(config)
+    # complete setting but does not work
+    config.update(
+        {
+            "NOTIFICATION": {
+                "smtp_server": "server",
+                "smtp_username": "user",
+                "smtp_password": "pass",
+                "email_sender": "dbsync@sync.com",
+                "email_subject": "DB Sync Error",
+                "email_recipients": ["recipient1@test.com", "recipient2@test.com"],
+                "smtp_port": 25,
+                "use_ssl": False,
+                "use_tls": True,
+            }
+        }
+    )
+
+    with pytest.raises(ConfigError, match="Config SMTP Error"):
+        validate_config(config)
+
+    # notifications are set, emails can be send - but this config was not validated, as it would be in real run
+    assert can_send_email(config)
