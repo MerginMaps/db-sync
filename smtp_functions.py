@@ -26,44 +26,30 @@ def create_connection_and_log_user(config: Dynaconf) -> typing.Union[smtplib.SMT
     return host
 
 
-def should_send_another_email(
-    current_time: datetime.datetime, last_email_sent: typing.Optional[datetime.datetime], config: Dynaconf
-) -> bool:
-    """Checks if another email should be sent. The time difference to last sent email needs to larger them
-    minimal interval specified in config or 4 hours if no value was specified."""
-    if last_email_sent is None:
-        return True
-    min_time_diff = config.notification.minimal_email_interval if "minimal_email_interval" in config.notification else 4
-    time_diff = current_time - last_email_sent
-    return time_diff.seconds > (min_time_diff * 3600)
-
-
-def send_email(error: str, last_email_send: typing.Optional[datetime.datetime], config: Dynaconf) -> None:
+def send_email(error: str, config: Dynaconf) -> None:
     """Sends email with provided error using the settings in config."""
-    current_time = datetime.datetime.now()
 
-    if should_send_another_email(current_time, last_email_send, config):
-        msg = EmailMessage()
-        msg["Subject"] = config.notification.email_subject
-        msg["From"] = config.notification.email_sender
-        msg["To"] = ", ".join(config.notification.email_recipients)
+    msg = EmailMessage()
+    msg["Subject"] = config.notification.email_subject
+    msg["From"] = config.notification.email_sender
+    msg["To"] = ", ".join(config.notification.email_recipients)
 
-        date_time = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    date_time = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-        error = f"{date_time}: {error}"
+    error = f"{date_time}: {error}"
 
-        msg.set_content(error)
+    msg.set_content(error)
 
-        sender_email = config.notification.email_sender
-        if "smtp_username" in config.notification:
-            sender_email = config.notification.smtp_username
+    sender_email = config.notification.email_sender
+    if "smtp_username" in config.notification:
+        sender_email = config.notification.smtp_username
 
-        try:
-            smtp_conn = create_connection_and_log_user(config)
-            smtp_conn.sendmail(sender_email, config.notification.email_recipients, msg.as_string())
-            smtp_conn.quit()
-        except:
-            pass
+    try:
+        smtp_conn = create_connection_and_log_user(config)
+        smtp_conn.sendmail(sender_email, config.notification.email_recipients, msg.as_string())
+        smtp_conn.quit()
+    except:
+        pass
 
 
 def can_send_email(config: Dynaconf) -> bool:
