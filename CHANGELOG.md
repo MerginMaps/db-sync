@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.0
+
+- Optionally send notification emails on sync failure (#56)
+
 ## 2.0.1
 
 - Do not stop sync after a temporary network/server issue (#124)
