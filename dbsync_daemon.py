@@ -118,6 +118,11 @@ def main():
     except ConfigError as e:
         handle_error_and_exit(e)
 
+    if not can_send_email(config):
+        logging.debug(
+            "Email notifications for sync failures are not set up. It is recommended to use them. Please see documentation."
+        )
+
     if args.test_notification_email:
         send_email("Mergin DB Sync test email.", config)
         logging.debug("Email sent!")
@@ -151,8 +156,6 @@ def main():
             handle_error_and_exit(e)
 
     else:
-        error_msg = None
-
         if not args.skip_init:
             try:
                 dbsync.dbsync_init(mc)
