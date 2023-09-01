@@ -159,7 +159,10 @@ def main():
             except dbsync.DbSyncError as e:
                 handle_error_and_exit(e)
 
-        last_email_send = None
+        last_email_sent = None
+        min_time_delta = (
+            config.notification.minimal_email_interval if "minimal_email_interval" in config.notification else 4
+        ) * 3600
 
         while True:
             print(datetime.datetime.now())
@@ -178,9 +181,12 @@ def main():
 
             except dbsync.DbSyncError as e:
                 logging.error(str(e))
-                if can_send_email(config):
-                    send_email(str(e), last_email_send, config)
-                    last_email_send = datetime.datetime.now()
+                if can_send_email(config) and (
+                    last_email_sent is None or (datetime.datetime.now() - last_email_sent) > min_time_delta
+                ):
+                    send_email(str(e), config)
+
+                    last_email_sent = datetime.datetime.now()
 
             logging.debug("Going to sleep")
             time.sleep(sleep_time)
