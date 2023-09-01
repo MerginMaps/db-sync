@@ -95,35 +95,34 @@ connections:
       - table2
 ```
 
-## Sending emails in case of synchronization fail
+## Email notifications on sync failures
 
-User can be notified about sync fails via email by including `notification` with proper setting in the config file
+To simplify db-sync monitoring, it is possible to set up notification emails when a sync failure happens. Simply add `notification` section in the configuration file as described below.
 
-The command line option `--test-notification-email` can be used to only send the notification email without running the daemon. This should be useful to test the `notification` settings setup.
+Use the `--test-notification-email` command line option to check whether notification emails get sent to make sure the notification configuration is correct.
 
 ```yaml
-# optional setting, if you do not want notifications on sync errors to be send via email just delete this section
 notification:
-  # first four options are required to be present 
-  # address of stmp server to send emails
-  smtp_server: "xxx.xxx"
-   # email sender to be displayed in the message
-  email_sender: "dbsync@info.com"
-  # email subject
+  # [required] email sender to be displayed in the message
+  email_sender: "dbsync@example.com"
+  # [required] email subject
   email_subject: "DB Sync Error"
-  # list of recipients of the email notification
-  email_recipients: ["recipient1@email.xxx", "recipient1@email.xxx"]
-  # the following configuration is optional and does not need to be specified
-  # smtp server user
-  smtp_username: "user@email.xxx"
-  # smtp user's password
+  # [required] list of recipients of the email notification
+  email_recipients: ["recipient1@example.com", "recipient1@example.com"]
+
+  # [required] address of stmp server to send emails
+  smtp_server: "smtp.example.com"
+  # [optional] smtp server user
+  smtp_username: "user@example.com"
+  # [optional] smtp user's password
   smtp_password: "password"
-  # smtp port
+  # [optional] smtp port
   smtp_port: 25
-  # use ssl true/false
+  # [optional] use ssl true/false
   use_ssl: false
-  # use tls true/false
+  # [optional] use tls true/false
   use_tls: false
-  # minimal interval for sending emails in hours (default value is 4) to avoid sending too many emails
+
+  # [optional] interval for sending emails (in hours) to avoid sending too many emails (default is 4 hours)
   minimal_email_interval: 4
 ```

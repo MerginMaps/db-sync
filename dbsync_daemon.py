@@ -125,7 +125,6 @@ def main():
 
     if args.test_notification_email:
         send_email("Mergin DB Sync test email.", config)
-        logging.debug("Email sent!")
         sys.exit(0)
 
     if args.force_init and args.skip_init:

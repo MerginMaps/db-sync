@@ -1,4 +1,5 @@
 import datetime
+import logging
 import smtplib
 import typing
 from email.message import EmailMessage
@@ -48,8 +49,9 @@ def send_email(error: str, config: Dynaconf) -> None:
         smtp_conn = create_connection_and_log_user(config)
         smtp_conn.sendmail(sender_email, config.notification.email_recipients, msg.as_string())
         smtp_conn.quit()
+        logging.debug("Notification email sent.")
     except:
-        pass
+        logging.debug("Failed to send notification email!")
 
 
 def can_send_email(config: Dynaconf) -> bool:
