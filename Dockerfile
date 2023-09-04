@@ -34,6 +34,7 @@ COPY config.py .
 COPY dbsync.py .
 COPY dbsync_daemon.py .
 COPY log_functions.py .
+COPY smtp_functions.py .
 
 ENV PATH="${PATH}:/geodiff/build"
 
