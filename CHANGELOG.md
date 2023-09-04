@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.1
+
+- Fix failure to start when notifications were not enabled
+- Fix Docker container
+
 ## 2.1.0
 
 - Optionally send notification emails on sync failure (#56)
