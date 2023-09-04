@@ -52,10 +52,3 @@ def send_email(error: str, config: Dynaconf) -> None:
         logging.debug("Notification email sent.")
     except:
         logging.debug("Failed to send notification email!")
-
-
-def can_send_email(config: Dynaconf) -> bool:
-    """Checks if notification settings is in the config and emails can be send."""
-    if "notification" in config:
-        return True
-    return False

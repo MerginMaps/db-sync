@@ -15,7 +15,7 @@ import time
 import dbsync
 from config import ConfigError, config, update_config_path, validate_config
 from log_functions import handle_error_and_exit, setup_logger
-from smtp_functions import can_send_email, send_email
+from smtp_functions import send_email
 from version import __version__
 
 
@@ -118,12 +118,17 @@ def main():
     except ConfigError as e:
         handle_error_and_exit(e)
 
-    if not can_send_email(config):
+    send_notifications = "notification" in config
+
+    if not send_notifications:
         logging.debug(
             "Email notifications for sync failures are not set up. It is recommended to use them. Please see documentation."
         )
 
     if args.test_notification_email:
+        if not send_notifications:
+            logging.debug("Unable to send test email because notifications are not configured!")
+            sys.exit(1)
         send_email("Mergin DB Sync test email.", config)
         sys.exit(0)
 
@@ -162,9 +167,6 @@ def main():
                 handle_error_and_exit(e)
 
         last_email_sent = None
-        min_time_delta = (
-            config.notification.minimal_email_interval if "minimal_email_interval" in config.notification else 4
-        ) * 3600
 
         while True:
             print(datetime.datetime.now())
@@ -183,12 +185,15 @@ def main():
 
             except dbsync.DbSyncError as e:
                 logging.error(str(e))
-                if can_send_email(config) and (
-                    last_email_sent is None or (datetime.datetime.now() - last_email_sent) > min_time_delta
-                ):
-                    send_email(str(e), config)
+                if send_notifications:
+                    if "minimal_email_interval" in config.notification:
+                        min_time_delta_hr = config.notification.minimal_email_interval
+                    else:
+                        min_time_delta_hr = 4
 
-                    last_email_sent = datetime.datetime.now()
+                    if last_email_sent is None or (datetime.datetime.now() - last_email_sent) > min_time_delta_hr * 3600:
+                        send_email(str(e), config)
+                        last_email_sent = datetime.datetime.now()
 
             logging.debug("Going to sleep")
             time.sleep(sleep_time)
