@@ -17,7 +17,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-            python -m pip installdynaconf pyinstaller mergin-client
+            python -m pip install dynaconf pyinstaller mergin-client
 
       - name: Build Binary
         run: |
