@@ -11,12 +11,12 @@ jobs:
 
       - uses: actions/checkout@v3
       
-      - name: Install wget
-        run: choco install wget
+      - name: Install QGIS
+        run: choco install qgis
 
-      - name: Install OSGEO4W and MM Client
+      - name: shell
+        shell: powershell
         run: |
-            wget https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe -o osgeo4w-setup.exe
-            osgeo4w-setup.exe -q -k -P QGIS
-            C:\OSGeo4W\OSGeo4W.bat
+            $osgeo_file=(Get-Childitem -Path C: -Include OSGeow4w.bat -Recurse -File | Select-Object -ExpandProperty FullName)
+            Invoke-Expression -Command $osgeo_file
             pip install dynaconf pyinstaller mergin-client
