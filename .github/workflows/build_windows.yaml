@@ -11,6 +11,9 @@ jobs:
 
       - uses: actions/checkout@v3
       
+      - name: Install wget
+        run: choco install wget
+        
       - name: Install OSGEO4W and MM Client
         run: |
             wget https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe -o osgeo4w-setup.exe
