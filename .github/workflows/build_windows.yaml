@@ -22,4 +22,4 @@ jobs:
       - name: Build Binary
         run: |
             cd scripts
-            call build_exe.bat
+            cmd.exe /C build_exe.bat
