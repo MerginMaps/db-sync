@@ -1,0 +1,19 @@
+name: Build standalone tool on Windows
+
+on: push
+
+jobs:
+
+  Compile-on-Windows:
+
+    runs-on: windows-latest
+    steps:
+
+      - uses: actions/checkout@v3
+      
+      - name: Install OSGEO4W and MM Client
+        run: |
+            wget https://download.osgeo.org/osgeo4w/v2/osgeo4w-setup.exe -o osgeo4w-setup.exe
+            .\osgeo4w-setup.exe -q -k -P QGIS
+            C:\OSGeo4W\OSGeo4W.bat
+            pip install dynaconf pyinstaller mergin-client
