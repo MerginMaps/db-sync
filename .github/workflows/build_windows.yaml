@@ -11,12 +11,15 @@ jobs:
 
       - uses: actions/checkout@v3
       
-      - name: Install QGIS
-        run: choco install qgis
+      - uses: actions/setup-python@v4
+        with:
+            python-version: '3.10' 
 
-      - name: shell
-        shell: powershell
+      - name: Install dependencies
         run: |
-            $osgeo_file=(Get-Childitem -Path C: -Include OSGeow4w.bat -Recurse -File | Select-Object -ExpandProperty FullName)
-            Invoke-Expression -Command $osgeo_file
-            pip install dynaconf pyinstaller mergin-client
+            python -m pip installdynaconf pyinstaller mergin-client
+
+      - name: Build Binary
+        run: |
+            cd scripts
+            build_exe.bat
