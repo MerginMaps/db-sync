@@ -63,14 +63,14 @@ def _reset_config(
 
 
 def cleanup(
-    mc,
+    mc: MerginClient,
     project,
     dirs,
 ):
     """cleanup leftovers from previous test if needed such as remote project and local directories"""
     try:
         print("Deleting project on Mergin Maps server: " + project)
-        mc.delete_project(project)
+        mc.delete_project_now(project)
     except ClientError as e:
         print("Deleting project error: " + str(e))
         pass
