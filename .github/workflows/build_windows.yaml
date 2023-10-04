@@ -32,7 +32,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-            python -m pip install dynaconf pyinstaller mergin-client
+            python -m pip install dynaconf pyinstaller mergin-client psycopg2
 
       - name: Build Binary
         run: |
