@@ -47,7 +47,8 @@ jobs:
           cd scripts/dist
           tar.exe -a -c -f dbsync_standalone_win.zip dbsync_daemon.exe config.yaml
 
-      - name: Print Dir
-        run: |
-          cd scripts/dist
-          dir
+      - name: Upload Zip file as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: dbsync_standalone_win
+          path: scripts/dist/dbsync_standalone_win.zip    
