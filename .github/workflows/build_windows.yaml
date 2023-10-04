@@ -44,11 +44,14 @@ jobs:
             cd scripts
             cmd.exe /C build_exe.bat
       
+      - name: Copy config file
+        run: copy config.yaml.default scripts/dist/config.yaml
+      
       - name: Print Dir
         run: |
           cd scripts/dist
           dir
-                
+
       - name: Zip Release
         run: |
           cd scripts/dist
