@@ -324,7 +324,7 @@ def test_config_notification_setup():
         }
     )
 
-    with pytest.raises(ConfigError, match="Config error: `smtp_port` must be set an integer"):
+    with pytest.raises(ConfigError, match="Config error: `smtp_port` must be set to an integer"):
         validate_config(config)
     # complete setting but does not work
     config.update(
