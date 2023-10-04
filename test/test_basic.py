@@ -657,7 +657,7 @@ def test_recreated_project_ids(
         source_gpkg_path,
     )
     # delete remote project
-    mc.delete_project(full_project_name)
+    mc.delete_project_now(full_project_name)
     # recreate project with the same name
     mc.create_project(
         project_name,
