@@ -20,6 +20,12 @@ jobs:
           out-file-path: "scripts/windows_binaries"
           extract: true
       
+      - name: Delete files from binaries
+        run: |
+          cd scripts/windows_binaries
+          del geodiff_*.zip
+          del geodiff-*.zip
+
       - name: Print Dir
         run: |
           cd scripts/windows_binaries
@@ -37,3 +43,18 @@ jobs:
         run: |
             cd scripts
             cmd.exe /C build_exe.bat
+      
+      - name: Print Dir
+        run: |
+          cd scripts/dist
+          dir
+                
+      - name: Zip Release
+        run: |
+          cd scripts/dist
+          tar.exe -a -c -f dbsync_standalone_win.zip dbsync_daemon.exe config.yaml
+
+      - name: Print Dir
+        run: |
+          cd scripts/dist
+          dir
