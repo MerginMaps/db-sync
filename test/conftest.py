@@ -1,25 +1,15 @@
-import pytest
 import os
-import tempfile
 import shutil
+import tempfile
 
 import psycopg2
 import psycopg2.extensions
-from psycopg2 import (
-    sql,
-)
+import pytest
+from mergin import ClientError, MerginClient
+from psycopg2 import sql
 
-from mergin import (
-    MerginClient,
-    ClientError,
-)
-
-from dbsync import (
-    dbsync_init,
-)
-from config import (
-    config,
-)
+from config import config
+from dbsync import dbsync_init
 
 GEODIFF_EXE = os.environ.get("TEST_GEODIFF_EXE")
 DB_CONNINFO = os.environ.get("TEST_DB_CONNINFO")
