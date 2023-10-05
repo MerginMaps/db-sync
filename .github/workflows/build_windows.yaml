@@ -1,6 +1,10 @@
-name: Build standalone tool on Windows
+name: Build standalone tool for Windows
 
-on: push
+on: 
+  push:
+    branches:
+      - master
+
 
 jobs:
 
