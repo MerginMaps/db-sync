@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from typing import List
 
 import psycopg2
 import psycopg2.extensions
@@ -195,3 +196,127 @@ def mc():
 @pytest.fixture(scope="function")
 def db_connection() -> psycopg2.extensions.connection:
     return psycopg2.connect(DB_CONNINFO)
+
+
+def name_db_schema_main(project_name: str) -> str:
+    return project_name + "_main"
+
+
+def name_db_schema_base(project_name: str) -> str:
+    return project_name + "_base"
+
+
+def name_project_dir(project_name: str) -> str:
+    return os.path.join(
+        TMP_DIR,
+        project_name + "_work",
+    )
+
+
+def name_project_sync_dir(project_name: str) -> str:
+    return os.path.join(
+        TMP_DIR,
+        project_name + "_dbsync",
+    )
+
+
+def complete_project_name(project_name: str) -> str:
+    return WORKSPACE + "/" + project_name
+
+
+def path_test_data(filename: str) -> str:
+    return os.path.join(
+        TEST_DATA_DIR,
+        filename,
+    )
+
+
+def path_sync_gpkg() -> str:
+    return "test_sync.gpkg"
+
+
+def init_sync_from_db(mc: MerginClient, project_name: str, ignored_tables: List[str] = None):
+    """
+    Initialize sync from given database file:
+    - (re)create Mergin Maps project with the file
+    - (re)create local project working directory and sync directory
+    - configure DB sync and let it do the init (make copies to the database)
+    """
+    if ignored_tables is None:
+        ignored_tables = []
+
+    full_project_name = complete_project_name(project_name)
+    project_dir = name_project_dir(project_name)  # working directory
+    sync_project_dir = name_project_sync_dir(project_name)  # used by dbsync
+    db_schema_main = name_db_schema_main(project_name)
+    db_schema_base = name_db_schema_base(project_name)
+
+    conn = psycopg2.connect(DB_CONNINFO)
+
+    cleanup(
+        mc,
+        full_project_name,
+        [
+            project_dir,
+            sync_project_dir,
+        ],
+    )
+    cleanup_db(
+        conn,
+        db_schema_base,
+        db_schema_main,
+    )
+
+    with open(
+        path_test_data("create_base.sql"),
+        encoding="utf-8",
+    ) as file:
+        base_table_dump = file.read()
+
+    base_table_dump = base_table_dump.replace("default-schema-name", db_schema_main)
+    base_table_dump = base_table_dump.replace("default-table-name", "simple")
+
+    cur = conn.cursor()
+    cur.execute(base_table_dump)
+
+    # prepare a new Mergin Maps project
+    mc.create_project(
+        project_name,
+        namespace=WORKSPACE,
+    )
+
+    # prepare dbsync config
+    # patch config to fit testing purposes
+    if ignored_tables:
+        connection = {
+            "driver": "postgres",
+            "conn_info": DB_CONNINFO,
+            "modified": db_schema_main,
+            "base": db_schema_base,
+            "mergin_project": full_project_name,
+            "sync_file": path_sync_gpkg(),
+            "skip_tables": ignored_tables,
+        }
+    else:
+        connection = {
+            "driver": "postgres",
+            "conn_info": DB_CONNINFO,
+            "modified": db_schema_main,
+            "base": db_schema_base,
+            "mergin_project": full_project_name,
+            "sync_file": path_sync_gpkg(),
+        }
+
+    config.update(
+        {
+            "GEODIFF_EXE": GEODIFF_EXE,
+            "WORKING_DIR": sync_project_dir,
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "CONNECTIONS": [connection],
+            "init_from": "db",
+        }
+    )
+
+    dbsync_init(mc)
