@@ -24,6 +24,7 @@ jobs:
       - name: Delete files from binaries
         run: |
           cd scripts/windows_binaries
+          dir
           del geodiff_*.zip
     
       - uses: actions/setup-python@v4
