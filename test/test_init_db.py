@@ -27,7 +27,7 @@ from .conftest import (
     name_db_schema_main,
     name_db_schema_base,
     complete_project_name,
-    path_sync_gpkg,
+    filename_sync_gpkg,
     path_test_data,
     cleanup,
     cleanup_db,
@@ -35,27 +35,28 @@ from .conftest import (
 )
 
 
-def test_init_from_db(
-    mc: MerginClient,
-):
+def test_init_from_db(mc: MerginClient, db_connection):
     project_name = "test_db_init"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
     db_schema_main = name_db_schema_main(project_name)
     db_schema_base = name_db_schema_base(project_name)
 
-    path_synced_gpkg = project_dir + "/" + path_sync_gpkg()
+    path_synced_gpkg = project_dir + "/" + filename_sync_gpkg()
 
     init_sync_from_db(mc, project_name)
 
     # test that database schemas are created + tables are populated
-    conn = psycopg2.connect(DB_CONNINFO)
-    cur = conn.cursor()
+    cur = db_connection.cursor()
 
-    cur.execute(sql.SQL("SELECT count(*) from {}.simple").format(sql.Identifier(db_schema_main)).as_string(conn))
+    cur.execute(
+        sql.SQL("SELECT count(*) from {}.simple").format(sql.Identifier(db_schema_main)).as_string(db_connection)
+    )
     assert cur.fetchone()[0] == 3
 
-    cur.execute(sql.SQL("SELECT count(*) from {}.simple").format(sql.Identifier(db_schema_base)).as_string(conn))
+    cur.execute(
+        sql.SQL("SELECT count(*) from {}.simple").format(sql.Identifier(db_schema_base)).as_string(db_connection)
+    )
     assert cur.fetchone()[0] == 3
 
     # download project and validate that the path synced file exist
@@ -78,22 +79,18 @@ def test_init_from_db(
     assert gpkg_cur.fetchone()[0] == 3
 
 
-def test_with_local_changes(
-    mc: MerginClient,
-):
+def test_with_local_changes(mc: MerginClient, db_connection):
     project_name = "test_mergin_changes_to_db"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
     db_schema_main = name_db_schema_main(project_name)
     db_schema_base = name_db_schema_base(project_name)
 
-    path_synced_gpkg = project_dir + "/" + path_sync_gpkg()
+    path_synced_gpkg = project_dir + "/" + filename_sync_gpkg()
 
     init_sync_from_db(mc, project_name)
 
-    # connecto to db
-    conn = psycopg2.connect(DB_CONNINFO)
-    cur = conn.cursor()
+    cur = db_connection.cursor()
 
     # check that there are 3 features prior to changes
     cur.execute(f'SELECT COUNT(*) from {db_schema_main}."simple"')
@@ -116,9 +113,7 @@ def test_with_local_changes(
     assert cur.fetchone()[0] == 4
 
 
-def test_with_db_changes(
-    mc: MerginClient,
-):
+def test_with_db_changes(mc: MerginClient, db_connection):
     project_name = "test_db_changes_mergin"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
@@ -127,9 +122,7 @@ def test_with_db_changes(
 
     init_sync_from_db(mc, project_name)
 
-    # connecto to db
-    conn = psycopg2.connect(DB_CONNINFO)
-    cur = conn.cursor()
+    cur = db_connection.cursor()
 
     cur.execute(
         f'INSERT INTO "{db_schema_main}"."simple" ("wkb_geometry" , "fid", "name", "rating") VALUES (\'0101000020E61000009CB92A724E60E7BFE0FDF1F774B6A53F\', 4, \'new feature\', 4);'
@@ -142,21 +135,19 @@ def test_with_db_changes(
     mc.download_project(project_full_name, project_dir)
 
     # look at changes in in GPKG
-    gpkg_conn = sqlite3.connect(project_dir + "/" + path_sync_gpkg())
+    gpkg_conn = sqlite3.connect(project_dir + "/" + filename_sync_gpkg())
     gpkg_cur = gpkg_conn.cursor()
     gpkg_cur.execute("SELECT COUNT(*) FROM simple")
     assert gpkg_cur.fetchone()[0] == 4
 
 
-def test_missing_table(mc: MerginClient):
+def test_missing_table(mc: MerginClient, db_connection):
     project_name = "test_db_missing_table"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
     db_schema_main = name_db_schema_main(project_name)
     db_schema_base = name_db_schema_base(project_name)
     sync_project_dir = name_project_sync_dir(project_name)  # used by dbsync
-
-    conn = psycopg2.connect(DB_CONNINFO)
 
     cleanup(
         mc,
@@ -167,7 +158,7 @@ def test_missing_table(mc: MerginClient):
         ],
     )
     cleanup_db(
-        conn,
+        db_connection,
         db_schema_base,
         db_schema_main,
     )
@@ -181,7 +172,7 @@ def test_missing_table(mc: MerginClient):
     base_table_dump = base_table_dump.replace("default-schema-name", db_schema_main)
     base_table_dump = base_table_dump.replace("default-table-name", "simple")
 
-    cur = conn.cursor()
+    cur = db_connection.cursor()
     cur.execute(base_table_dump)
 
     # prepare a new Mergin Maps project
@@ -196,7 +187,7 @@ def test_missing_table(mc: MerginClient):
         "modified": "non_existing_schema",
         "base": db_schema_base,
         "mergin_project": project_full_name,
-        "sync_file": path_sync_gpkg(),
+        "sync_file": filename_sync_gpkg(),
     }
 
     config.update(
