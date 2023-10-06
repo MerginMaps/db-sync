@@ -25,20 +25,18 @@ TEST_DATA_DIR = os.path.join(
 )
 
 
-def _reset_config(
-    project_name: str = "mergin",
-):
+def _reset_config(project_name: str = "mergin", init_from: str = "gpkg"):
     """helper to reset config settings to ensure valid config"""
-    db_schema_main = project_name + "_main"
-    db_schema_base = project_name + "_base"
-    full_project_name = WORKSPACE + "/" + project_name
+    db_schema_main = name_db_schema_main(project_name)
+    db_schema_base = name_db_schema_base(project_name)
+    full_project_name = complete_project_name(project_name)
 
     config.update(
         {
             "MERGIN__USERNAME": API_USER,
             "MERGIN__PASSWORD": USER_PWD,
             "MERGIN__URL": SERVER_URL,
-            "init_from": "gpkg",
+            "init_from": init_from,
             "CONNECTIONS": [
                 {
                     "driver": "postgres",
@@ -46,7 +44,7 @@ def _reset_config(
                     "modified": db_schema_main,
                     "base": db_schema_base,
                     "mergin_project": full_project_name,
-                    "sync_file": "test_sync.gpkg",
+                    "sync_file": filename_sync_gpkg(),
                 }
             ],
         }
@@ -89,17 +87,11 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
     - (re)create local project working directory and sync directory
     - configure DB sync and let it do the init (make copies to the database)
     """
-    full_project_name = WORKSPACE + "/" + project_name
-    project_dir = os.path.join(
-        TMP_DIR,
-        project_name + "_work",
-    )  # working directory
-    sync_project_dir = os.path.join(
-        TMP_DIR,
-        project_name + "_dbsync",
-    )  # used by dbsync
-    db_schema_main = project_name + "_main"
-    db_schema_base = project_name + "_base"
+    full_project_name = complete_project_name(project_name)
+    project_dir = name_project_dir(project_name)  # working directory
+    sync_project_dir = name_project_sync_dir(project_name)  # used by dbsync
+    db_schema_main = name_db_schema_main(project_name)
+    db_schema_base = name_db_schema_base(project_name)
 
     conn = psycopg2.connect(DB_CONNINFO)
 
@@ -130,7 +122,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
         source_gpkg_path,
         os.path.join(
             project_dir,
-            "test_sync.gpkg",
+            filename_sync_gpkg(),
         ),
     )
     for extra_filepath in extra_init_files:
@@ -154,7 +146,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
             "modified": db_schema_main,
             "base": db_schema_base,
             "mergin_project": full_project_name,
-            "sync_file": "test_sync.gpkg",
+            "sync_file": filename_sync_gpkg(),
             "skip_tables": ignored_tables,
         }
     else:
@@ -164,7 +156,7 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
             "modified": db_schema_main,
             "base": db_schema_base,
             "mergin_project": full_project_name,
-            "sync_file": "test_sync.gpkg",
+            "sync_file": filename_sync_gpkg(),
         }
 
     config.update(
@@ -231,7 +223,7 @@ def path_test_data(filename: str) -> str:
     )
 
 
-def path_sync_gpkg() -> str:
+def filename_sync_gpkg() -> str:
     return "test_sync.gpkg"
 
 
@@ -294,7 +286,7 @@ def init_sync_from_db(mc: MerginClient, project_name: str, ignored_tables: List[
             "modified": db_schema_main,
             "base": db_schema_base,
             "mergin_project": full_project_name,
-            "sync_file": path_sync_gpkg(),
+            "sync_file": filename_sync_gpkg(),
             "skip_tables": ignored_tables,
         }
     else:
@@ -304,7 +296,7 @@ def init_sync_from_db(mc: MerginClient, project_name: str, ignored_tables: List[
             "modified": db_schema_main,
             "base": db_schema_base,
             "mergin_project": full_project_name,
-            "sync_file": path_sync_gpkg(),
+            "sync_file": filename_sync_gpkg(),
         }
 
     config.update(
