@@ -238,9 +238,9 @@ def path_sync_gpkg() -> str:
 def init_sync_from_db(mc: MerginClient, project_name: str, ignored_tables: List[str] = None):
     """
     Initialize sync from given database file:
-    - (re)create Mergin Maps project with the file
-    - (re)create local project working directory and sync directory
-    - configure DB sync and let it do the init (make copies to the database)
+    - prepare schema with simple table
+    - create MM project
+    - configure DB sync and let it do the init
     """
     if ignored_tables is None:
         ignored_tables = []
