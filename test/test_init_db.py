@@ -1,6 +1,7 @@
 import os
 import shutil
 import sqlite3
+import pytest
 
 
 import psycopg2
@@ -12,13 +13,15 @@ from mergin import (
     MerginClient,
 )
 
-from dbsync import (
-    dbsync_pull,
-    dbsync_push,
-)
+from dbsync import dbsync_pull, dbsync_push, dbsync_init, config, DbSyncError
 
 from .conftest import (
+    GEODIFF_EXE,
+    API_USER,
+    USER_PWD,
+    SERVER_URL,
     DB_CONNINFO,
+    WORKSPACE,
     init_sync_from_db,
     name_project_dir,
     name_db_schema_main,
@@ -26,6 +29,9 @@ from .conftest import (
     complete_project_name,
     path_sync_gpkg,
     path_test_data,
+    cleanup,
+    cleanup_db,
+    name_project_sync_dir,
 )
 
 
@@ -72,7 +78,7 @@ def test_init_from_db(
     assert gpkg_cur.fetchone()[0] == 3
 
 
-def test_local_changes_to_db(
+def test_with_local_changes(
     mc: MerginClient,
 ):
     project_name = "test_mergin_changes_to_db"
@@ -110,7 +116,7 @@ def test_local_changes_to_db(
     assert cur.fetchone()[0] == 4
 
 
-def test_db_changes_to_mergin(
+def test_with_db_changes(
     mc: MerginClient,
 ):
     project_name = "test_db_changes_mergin"
@@ -140,3 +146,71 @@ def test_db_changes_to_mergin(
     gpkg_cur = gpkg_conn.cursor()
     gpkg_cur.execute("SELECT COUNT(*) FROM simple")
     assert gpkg_cur.fetchone()[0] == 4
+
+
+def test_missing_table(mc: MerginClient):
+    project_name = "test_db_missing_table"
+    project_full_name = complete_project_name(project_name)
+    project_dir = name_project_dir(project_name)
+    db_schema_main = name_db_schema_main(project_name)
+    db_schema_base = name_db_schema_base(project_name)
+    sync_project_dir = name_project_sync_dir(project_name)  # used by dbsync
+
+    conn = psycopg2.connect(DB_CONNINFO)
+
+    cleanup(
+        mc,
+        project_full_name,
+        [
+            project_dir,
+            sync_project_dir,
+        ],
+    )
+    cleanup_db(
+        conn,
+        db_schema_base,
+        db_schema_main,
+    )
+
+    with open(
+        path_test_data("create_base.sql"),
+        encoding="utf-8",
+    ) as file:
+        base_table_dump = file.read()
+
+    base_table_dump = base_table_dump.replace("default-schema-name", db_schema_main)
+    base_table_dump = base_table_dump.replace("default-table-name", "simple")
+
+    cur = conn.cursor()
+    cur.execute(base_table_dump)
+
+    # prepare a new Mergin Maps project
+    mc.create_project(
+        project_name,
+        namespace=WORKSPACE,
+    )
+
+    connection = {
+        "driver": "postgres",
+        "conn_info": DB_CONNINFO,
+        "modified": "non_existing_schema",
+        "base": db_schema_base,
+        "mergin_project": project_full_name,
+        "sync_file": path_sync_gpkg(),
+    }
+
+    config.update(
+        {
+            "GEODIFF_EXE": GEODIFF_EXE,
+            "WORKING_DIR": sync_project_dir,
+            "MERGIN__USERNAME": API_USER,
+            "MERGIN__PASSWORD": USER_PWD,
+            "MERGIN__URL": SERVER_URL,
+            "CONNECTIONS": [connection],
+            "init_from": "db",
+        }
+    )
+
+    with pytest.raises(DbSyncError) as err:
+        dbsync_init(mc)
+    assert "The 'modified' schema does not exist" in str(err.value)
