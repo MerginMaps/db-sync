@@ -232,8 +232,8 @@ def init_sync_from_db(mc: MerginClient, project_name: str, path_sql_file: str, i
     full_project_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)  # working directory
     sync_project_dir = name_project_sync_dir(project_name)  # used by dbsync
-    db_schema_main = name_db_schema_main(project_name)
-    db_schema_base = name_db_schema_base(project_name)
+    db_schema_main = "test_init_from_db_main"
+    db_schema_base = "test_init_from_db_base"
 
     conn = psycopg2.connect(DB_CONNINFO)
 
