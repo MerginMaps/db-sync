@@ -13,7 +13,7 @@ from mergin import (
     MerginClient,
 )
 
-from dbsync import dbsync_pull, dbsync_push, dbsync_init, config, DbSyncError
+from dbsync import dbsync_pull, dbsync_push, config, DbSyncError
 
 from .conftest import (
     GEODIFF_EXE,
@@ -24,13 +24,9 @@ from .conftest import (
     WORKSPACE,
     init_sync_from_db,
     name_project_dir,
-    name_db_schema_main,
-    name_db_schema_base,
     complete_project_name,
     filename_sync_gpkg,
     path_test_data,
-    cleanup,
-    cleanup_db,
     name_project_sync_dir,
 )
 
@@ -40,12 +36,12 @@ def test_init_from_db(mc: MerginClient, db_connection):
     project_name = "test_db_init"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
-    db_schema_main = name_db_schema_main(project_name)
-    db_schema_base = name_db_schema_base(project_name)
+    db_schema_main = "test_init_from_db_main"
+    db_schema_base = "test_init_from_db_base"
 
     path_synced_gpkg = project_dir + "/" + filename_sync_gpkg()
 
-    init_sync_from_db(mc, project_name)
+    init_sync_from_db(mc, project_name, path_test_data("create_base.sql"))
 
     # test that database schemas are created + tables are populated
     cur = db_connection.cursor()
@@ -85,12 +81,12 @@ def test_with_local_changes(mc: MerginClient, db_connection):
     project_name = "test_mergin_changes_to_db"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
-    db_schema_main = name_db_schema_main(project_name)
-    db_schema_base = name_db_schema_base(project_name)
+    db_schema_main = "test_init_from_db_main"
+    db_schema_base = "test_init_from_db_base"
 
     path_synced_gpkg = project_dir + "/" + filename_sync_gpkg()
 
-    init_sync_from_db(mc, project_name)
+    init_sync_from_db(mc, project_name, path_test_data("create_base.sql"))
 
     cur = db_connection.cursor()
 
@@ -120,10 +116,10 @@ def test_with_db_changes(mc: MerginClient, db_connection):
     project_name = "test_db_changes_mergin"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
-    db_schema_main = name_db_schema_main(project_name)
-    db_schema_base = name_db_schema_base(project_name)
+    db_schema_main = "test_init_from_db_main"
+    db_schema_base = "test_init_from_db_base"
 
-    init_sync_from_db(mc, project_name)
+    init_sync_from_db(mc, project_name, path_test_data("create_base.sql"))
 
     cur = db_connection.cursor()
 
@@ -144,68 +140,11 @@ def test_with_db_changes(mc: MerginClient, db_connection):
     assert gpkg_cur.fetchone()[0] == 4
 
 
-def test_missing_table(mc: MerginClient, db_connection):
+def test_missing_table(mc: MerginClient):
     """Test that if the schema is missing in DB the sync init raises correct DbSyncError"""
     project_name = "test_db_missing_table"
-    project_full_name = complete_project_name(project_name)
-    project_dir = name_project_dir(project_name)
-    db_schema_main = name_db_schema_main(project_name)
-    db_schema_base = name_db_schema_base(project_name)
-    sync_project_dir = name_project_sync_dir(project_name)  # used by dbsync
-
-    cleanup(
-        mc,
-        project_full_name,
-        [
-            project_dir,
-            sync_project_dir,
-        ],
-    )
-    cleanup_db(
-        db_connection,
-        db_schema_base,
-        db_schema_main,
-    )
-
-    with open(
-        path_test_data("create_base.sql"),
-        encoding="utf-8",
-    ) as file:
-        base_table_dump = file.read()
-
-    base_table_dump = base_table_dump.replace("default-schema-name", db_schema_main)
-    base_table_dump = base_table_dump.replace("default-table-name", "simple")
-
-    cur = db_connection.cursor()
-    cur.execute(base_table_dump)
-
-    # prepare a new Mergin Maps project
-    mc.create_project(
-        project_name,
-        namespace=WORKSPACE,
-    )
-
-    connection = {
-        "driver": "postgres",
-        "conn_info": DB_CONNINFO,
-        "modified": "non_existing_schema",
-        "base": db_schema_base,
-        "mergin_project": project_full_name,
-        "sync_file": filename_sync_gpkg(),
-    }
-
-    config.update(
-        {
-            "GEODIFF_EXE": GEODIFF_EXE,
-            "WORKING_DIR": sync_project_dir,
-            "MERGIN__USERNAME": API_USER,
-            "MERGIN__PASSWORD": USER_PWD,
-            "MERGIN__URL": SERVER_URL,
-            "CONNECTIONS": [connection],
-            "init_from": "db",
-        }
-    )
 
     with pytest.raises(DbSyncError) as err:
-        dbsync_init(mc)
+        init_sync_from_db(mc, project_name, path_test_data("create_another_schema.sql"))
+
     assert "The 'modified' schema does not exist" in str(err.value)
