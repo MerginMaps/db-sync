@@ -219,7 +219,7 @@ def filename_sync_gpkg() -> str:
     return "test_sync.gpkg"
 
 
-def init_sync_from_db(mc: MerginClient, project_name: str, ignored_tables: List[str] = None):
+def init_sync_from_db(mc: MerginClient, project_name: str, path_sql_file: str, ignored_tables: List[str] = None):
     """
     Initialize sync from given database file:
     - prepare schema with simple table
@@ -252,13 +252,10 @@ def init_sync_from_db(mc: MerginClient, project_name: str, ignored_tables: List[
     )
 
     with open(
-        path_test_data("create_base.sql"),
+        path_sql_file,
         encoding="utf-8",
     ) as file:
         base_table_dump = file.read()
-
-    base_table_dump = base_table_dump.replace("default-schema-name", db_schema_main)
-    base_table_dump = base_table_dump.replace("default-table-name", "simple")
 
     cur = conn.cursor()
     cur.execute(base_table_dump)
