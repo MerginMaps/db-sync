@@ -638,7 +638,6 @@ def test_with_local_changes(
     dbsync_status(mc)
 
 
-@pytest.mark.skip(reason="Currently being reworked in MM")
 def test_recreated_project_ids(
     mc: MerginClient,
 ):
