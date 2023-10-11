@@ -145,6 +145,7 @@ def test_with_db_changes(mc: MerginClient, db_connection):
 
 
 def test_missing_table(mc: MerginClient, db_connection):
+    """Test that if the schema is missing in DB the sync init raises correct DbSyncError"""
     project_name = "test_db_missing_table"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
