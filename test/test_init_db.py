@@ -36,6 +36,7 @@ from .conftest import (
 
 
 def test_init_from_db(mc: MerginClient, db_connection):
+    """Test that init from db happens correctly, with the tables in sync GPKG created a populated correctly"""
     project_name = "test_db_init"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
@@ -80,6 +81,7 @@ def test_init_from_db(mc: MerginClient, db_connection):
 
 
 def test_with_local_changes(mc: MerginClient, db_connection):
+    """Test that after init and local changes the changes are correctly pushed to database"""
     project_name = "test_mergin_changes_to_db"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
@@ -114,6 +116,7 @@ def test_with_local_changes(mc: MerginClient, db_connection):
 
 
 def test_with_db_changes(mc: MerginClient, db_connection):
+    """Test that after init and DB changes the changes are correctly pulled to the MM GPKG"""
     project_name = "test_db_changes_mergin"
     project_full_name = complete_project_name(project_name)
     project_dir = name_project_dir(project_name)
