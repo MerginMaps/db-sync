@@ -754,12 +754,11 @@ def pull(conn_cfg, mc):
     # Make sure that local project ID (if available) is the same as on  the server
     _validate_local_project_id(mp, mc)
 
-    project_path = mp.metadata["name"]
-    local_version = mp.metadata["version"]
+    local_version = mp.version()
 
     try:
-        projects = mc.get_projects_by_names([project_path])
-        server_version = projects[project_path]["version"]
+        projects = mc.get_projects_by_names([mp.project_full_name()])
+        server_version = projects[mp.project_full_name()]["version"]
     except ClientError as e:
         # this could be e.g. DNS error
         raise DbSyncError("Mergin Maps client error: " + str(e))
