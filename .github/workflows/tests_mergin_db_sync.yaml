@@ -59,13 +59,10 @@ jobs:
           python3 -m pip install -r requirements.txt
           python3 -m pip install -r requirements-dev.txt
 
+
       - name: Run tests
         run: |
-          pytest test/test_basic.py --cov=. --cov-report=term-missing:skip-covered -vv
-
-      # - name: Run tests
-      #   run: |
-      #     pytest test --cov=. --cov-report=term-missing:skip-covered -vv
+          pytest test --cov=. --cov-report=term-missing:skip-covered -vv
 
       - name: Check files using the black formatter
         uses: rickstaa/action-black@v1
