@@ -1,10 +1,5 @@
 # Mergin Maps Database Sync
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" width=350 srcset="https://raw.githubusercontent.com/MerginMaps/.github/main/images/MM_logo_HORIZ_COLOR_NEGATIVE_VECTOR.svg">
-  <img width=350 src="https://raw.githubusercontent.com/MerginMaps/.github/main/images/MM_logo_HORIZ_COLOR_PRIMARY_VECTOR.svg">
-</picture>
-
 This tool takes care of two-way synchronization between [Mergin Maps](https://merginmaps.com/) and another database (currently supporting PostGIS).
 
 That means you can:
