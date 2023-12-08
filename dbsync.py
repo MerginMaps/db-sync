@@ -538,6 +538,7 @@ def _get_mergin_project(
     """
     if work_path not in cached_mergin_project_objects:
         cached_mergin_project_objects[work_path] = MerginProject(work_path)
+    cached_mergin_project_objects[work_path]._read_metadata()
     return cached_mergin_project_objects[work_path]
 
 
