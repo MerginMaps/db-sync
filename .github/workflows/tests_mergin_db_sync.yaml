@@ -5,6 +5,9 @@ on:
     paths:
     - "test/**"
     - "**.py"
+    - "requirements.txt"
+    - "requirements-dev.txt"
+    - "pyproject.toml"
     - ".github/workflows/tests_mergin_db_sync.yaml"
 
 env:
