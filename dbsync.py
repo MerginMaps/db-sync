@@ -899,8 +899,8 @@ def status(conn_cfg, mc):
     mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
-    project_path = mp.metadata["name"]
-    local_version = mp.metadata["version"]
+    project_path = mp.project_full_name()
+    local_version = mp.version()
     logging.debug("Checking status...")
     try:
         server_info = mc.project_info(
@@ -1008,12 +1008,11 @@ def push(conn_cfg, mc):
     # Make sure that local project ID (if available) is the same as on  the server
     _validate_local_project_id(mp, mc)
 
-    project_path = mp.metadata["name"]
-    local_version = mp.metadata["version"]
+    local_version = mp.version()
 
     try:
-        projects = mc.get_projects_by_names([project_path])
-        server_version = projects[project_path]["version"]
+        projects = mc.get_projects_by_names([mp.project_full_name()])
+        server_version = projects[mp.project_full_name()]["version"]
     except ClientError as e:
         # this could be e.g. DNS error
         raise DbSyncError("Mergin Maps client error: " + str(e))
