@@ -46,14 +46,16 @@ jobs:
 
       - name: Check Geodiff version    
         run: geodiff version
+        
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install mergin-client pytest pytest-cov dynaconf psycopg2
+          python3 -m pip install -r requirements.txt
+          python3 -m pip install -r requirements-dev.txt
 
-      - name: Checkout
-        uses: actions/checkout@v2
 
       - name: Run tests
         run: |
