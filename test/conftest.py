@@ -147,7 +147,10 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
     }
 
     if ignored_tables:
-        connection["skip_tables"] = (ignored_tables,)
+        if isinstance(ignored_tables, str):
+            connection["skip_tables"] = [ignored_tables]
+        elif isinstance(ignored_tables, list):
+            connection["skip_tables"] = ignored_tables
 
     config.update(
         {
