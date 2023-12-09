@@ -110,10 +110,8 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
     )
 
     # prepare a new Mergin Maps project
-    mc.create_project(
-        project_name,
-        namespace=WORKSPACE,
-    )
+    mc.create_project(full_project_name)
+
     mc.download_project(
         full_project_name,
         project_dir,
@@ -261,10 +259,7 @@ def init_sync_from_db(mc: MerginClient, project_name: str, path_sql_file: str, i
     cur.execute(base_table_dump)
 
     # prepare a new Mergin Maps project
-    mc.create_project(
-        project_name,
-        namespace=WORKSPACE,
-    )
+    mc.create_project(full_project_name)
 
     # prepare dbsync config
     # patch config to fit testing purposes
