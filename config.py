@@ -159,8 +159,10 @@ def get_ignored_tables(
             connection.skip_tables,
             list,
         ):
-            if isinstance(connection.skip_tables, dynaconf.vendor.box.box_list.BoxList):
-                return connection.skip_tables.to_list()[0]
+            if len(connection.skip_tables) < 1:
+                return []
+            elif isinstance(connection.skip_tables, dynaconf.vendor.box.box_list.BoxList):
+                return connection.skip_tables.to_list()
             return connection.skip_tables
     else:
         return []
