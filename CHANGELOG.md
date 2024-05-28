@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.2
+
+- Fix datetime.timedelta comparison to seconds  
+
 ## 2.1.1
 
 - Fix failure to start when notifications were not enabled
