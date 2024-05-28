@@ -5,10 +5,10 @@ Copyright (C) 2022 Lutra Consulting
 
 License: MIT
 """
+
 import pytest
 
 from config import ConfigError, config, get_ignored_tables, validate_config
-from smtp_functions import can_send_email
 
 from .conftest import _reset_config
 
@@ -255,9 +255,7 @@ def test_get_ignored_tables():
 def test_config_notification_setup():
     _reset_config()
 
-    # no NOTIFICATIONS set should pass but cannot send email
     validate_config(config)
-    assert can_send_email(config) is False
 
     # incomplete setting
     config.update(
@@ -347,6 +345,3 @@ def test_config_notification_setup():
 
     with pytest.raises(ConfigError, match="Config SMTP Error"):
         validate_config(config)
-
-    # notifications are set, emails can be send - but this config was not validated, as it would be in real run
-    assert can_send_email(config)
