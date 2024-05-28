@@ -53,7 +53,7 @@ jobs:
           python3 -m pip install mergin-client pytest pytest-cov dynaconf psycopg2
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Run tests
         run: |
