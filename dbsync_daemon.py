@@ -191,7 +191,10 @@ def main():
                     else:
                         min_time_delta_hr = 4
 
-                    if last_email_sent is None or (datetime.datetime.now() - last_email_sent) > min_time_delta_hr * 3600:
+                    if (
+                        last_email_sent is None
+                        or (datetime.datetime.now() - last_email_sent).total_seconds() > min_time_delta_hr * 3600
+                    ):
                         send_email(str(e), config)
                         last_email_sent = datetime.datetime.now()
 
