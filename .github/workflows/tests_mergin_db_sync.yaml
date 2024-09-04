@@ -13,7 +13,7 @@ on:
 env:
   TEST_GEODIFF_EXE: geodiff
   TEST_DB_CONNINFO: host=localhost dbname=test_db user=postgres password=postgres port=5432
-  TEST_MERGIN_URL: https://test.dev.merginmaps.com
+  TEST_MERGIN_URL: https://app.dev.merginmaps.com/
   TEST_API_USERNAME: test_db_sync
   TEST_API_PASSWORD: ${{ secrets.TEST_API_PASSWORD }}
   TEST_API_WORKSPACE: test-db-sync
