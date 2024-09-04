@@ -5,6 +5,7 @@ Copyright (C) 2022 Lutra Consulting
 
 License: MIT
 """
+
 import pytest
 
 from config import ConfigError, config, get_ignored_tables, validate_config
@@ -254,7 +255,6 @@ def test_get_ignored_tables():
 def test_config_notification_setup():
     _reset_config()
 
-    # no NOTIFICATIONS set should pass but cannot send email
     validate_config(config)
 
     # incomplete setting
