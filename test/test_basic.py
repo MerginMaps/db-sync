@@ -657,12 +657,10 @@ def test_recreated_project_ids(
         source_gpkg_path,
     )
     # delete remote project
-    mc.delete_project(full_project_name)
+    mc.delete_project_now(full_project_name)
     # recreate project with the same name
-    mc.create_project(
-        project_name,
-        namespace=WORKSPACE,
-    )
+    mc.create_project(full_project_name)
+
     # comparing project IDs after recreating it with the same name
     mp = _get_mergin_project(project_dir)
     local_project_id = _get_project_id(mp)

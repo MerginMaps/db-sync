@@ -525,9 +525,7 @@ def _print_mergin_changes(
 cached_mergin_project_objects = {}
 
 
-def _get_mergin_project(
-    work_path,
-):
+def _get_mergin_project(work_path) -> MerginProject:
     """
     Returns a cached MerginProject object or creates one if it does not exist yet.
     This is to avoid creating many of these objects (e.g. every pull/push) because it does
@@ -538,23 +536,20 @@ def _get_mergin_project(
     """
     if work_path not in cached_mergin_project_objects:
         cached_mergin_project_objects[work_path] = MerginProject(work_path)
+    cached_mergin_project_objects[work_path]._read_metadata()
     return cached_mergin_project_objects[work_path]
 
 
-def _get_project_version(
-    work_path,
-):
+def _get_project_version(work_path) -> str:
     """Returns the current version of the project"""
     mp = _get_mergin_project(work_path)
-    return mp.metadata["version"]
+    return mp.version()
 
 
-def _get_project_id(
-    mp,
-):
+def _get_project_id(mp: MerginProject):
     """Returns the project ID"""
     try:
-        project_id = uuid.UUID(mp.metadata["project_id"])
+        project_id = uuid.UUID(mp.project_id())
     except (
         KeyError,
         ValueError,
@@ -636,10 +631,9 @@ def _validate_local_project_id(
     local_project_id = _get_project_id(mp)
     if local_project_id is None:
         return
-    project_path = mp.metadata["name"]
     if server_info is None:
         try:
-            server_info = mc.project_info(project_path)
+            server_info = mc.project_info(mp.project_full_name())
         except ClientError as e:
             raise DbSyncError("Mergin Maps client error: " + str(e))
 
@@ -718,7 +712,7 @@ def revert_local_changes(
                     mp.dir,
                     update_delete_file,
                     update_delete_filepath,
-                    mp.metadata["version"],
+                    mp.version(),
                 )
             except ClientError as e:
                 raise DbSyncError("Mergin Maps client error: " + str(e))
@@ -754,12 +748,11 @@ def pull(conn_cfg, mc):
     # Make sure that local project ID (if available) is the same as on  the server
     _validate_local_project_id(mp, mc)
 
-    project_path = mp.metadata["name"]
-    local_version = mp.metadata["version"]
+    local_version = mp.version()
 
     try:
-        projects = mc.get_projects_by_names([project_path])
-        server_version = projects[project_path]["version"]
+        projects = mc.get_projects_by_names([mp.project_full_name()])
+        server_version = projects[mp.project_full_name()]["version"]
     except ClientError as e:
         # this could be e.g. DNS error
         raise DbSyncError("Mergin Maps client error: " + str(e))
@@ -900,8 +893,8 @@ def status(conn_cfg, mc):
     mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
-    project_path = mp.metadata["name"]
-    local_version = mp.metadata["version"]
+    project_path = mp.project_full_name()
+    local_version = mp.version()
     logging.debug("Checking status...")
     try:
         server_info = mc.project_info(
@@ -1009,12 +1002,11 @@ def push(conn_cfg, mc):
     # Make sure that local project ID (if available) is the same as on  the server
     _validate_local_project_id(mp, mc)
 
-    project_path = mp.metadata["name"]
-    local_version = mp.metadata["version"]
+    local_version = mp.version()
 
     try:
-        projects = mc.get_projects_by_names([project_path])
-        server_version = projects[project_path]["version"]
+        projects = mc.get_projects_by_names([mp.project_full_name()])
+        server_version = projects[mp.project_full_name()]["version"]
     except ClientError as e:
         # this could be e.g. DNS error
         raise DbSyncError("Mergin Maps client error: " + str(e))
