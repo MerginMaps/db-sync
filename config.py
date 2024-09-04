@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 
 from dynaconf import Dynaconf
+import dynaconf
 
 from smtp_functions import create_connection_and_log_user
 
@@ -158,6 +159,10 @@ def get_ignored_tables(
             connection.skip_tables,
             list,
         ):
+            if len(connection.skip_tables) < 1:
+                return []
+            elif isinstance(connection.skip_tables, dynaconf.vendor.box.box_list.BoxList):
+                return connection.skip_tables.to_list()
             return connection.skip_tables
     else:
         return []
