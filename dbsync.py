@@ -862,12 +862,12 @@ def pull(conn_cfg, mc):
 
     os.remove(gpkg_basefile_old)
     conn = psycopg2.connect(conn_cfg.conn_info)
-    version = _get_project_version(work_dir)
     _set_db_project_comment(
         conn,
         conn_cfg.base,
         conn_cfg.mergin_project,
-        version,
+        version=_get_project_version(work_dir),
+        project_id=_get_project_id(work_dir),
     )
 
 
@@ -1072,7 +1072,13 @@ def push(conn_cfg, mc):
     # update base schema in the DB
     logging.debug("Updating DB base schema...")
     _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_changeset_file, ignored_tables)
-    _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
+    _set_db_project_comment(
+        conn,
+        conn_cfg.base,
+        conn_cfg.mergin_project,
+        version,
+        project_id=_get_project_id(work_dir),
+    )
 
 
 def init(
@@ -1320,6 +1326,7 @@ def init(
             conn_cfg.base,
             conn_cfg.mergin_project,
             local_version,
+            project_id=_get_project_id(work_dir),
         )
     else:
         if not modified_schema_exists:
@@ -1434,12 +1441,12 @@ def init(
         mc.push_project(work_dir)
 
         # mark project version into db schema
-        version = _get_project_version(work_dir)
         _set_db_project_comment(
             conn,
             conn_cfg.base,
             conn_cfg.mergin_project,
-            version,
+            version=_get_project_version(work_dir),
+            project_id=_get_project_id(work_dir),
         )
 
 
