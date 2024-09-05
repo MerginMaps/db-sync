@@ -1157,6 +1157,14 @@ def init(
                 f"Downloading version {db_proj_info['version']} of Mergin Maps project {conn_cfg.mergin_project} "
                 f"to {work_dir}"
             )
+            project_info = mc.project_info(conn_cfg.mergin_project)
+            if db_proj_info["project_id"] != project_info["id"]:
+                raise DbSyncError(
+                    "Mergin Maps project ID doesn't match Mergin Maps project ID stored in the database. "
+                    "Did you change configuration from one Mergin Maps project to another? "
+                    f"You either need to remove schema `{conn_cfg.base}` from Database or use `--force-init` option. "
+                    f"{FORCE_INIT_MESSAGE}"
+                )
             mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
         else:
             # Get project ID from DB if available
