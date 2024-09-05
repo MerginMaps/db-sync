@@ -577,7 +577,7 @@ def _set_db_project_comment(
         "version": version,
     }
     if project_id:
-        comment["project_id"] = project_id
+        comment["project_id"] = str(project_id)
     if error:
         comment["error"] = error
     cur = conn.cursor()
