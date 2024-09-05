@@ -18,6 +18,7 @@ import uuid
 import re
 import pathlib
 import logging
+import typing
 
 import psycopg2
 import psycopg2.extensions
@@ -546,8 +547,10 @@ def _get_project_version(work_path) -> str:
     return mp.version()
 
 
-def _get_project_id(mp: MerginProject):
+def _get_project_id(mp: typing.Union[MerginProject, str]):
     """Returns the project ID"""
+    if isinstance(mp, str):
+        mp = _get_mergin_project(mp)
     try:
         project_id = uuid.UUID(mp.project_id())
     except (
