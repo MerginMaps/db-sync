@@ -50,5 +50,5 @@ def send_email(error: str, config: Dynaconf) -> None:
         smtp_conn.sendmail(sender_email, config.notification.email_recipients, msg.as_string())
         smtp_conn.quit()
         logging.debug("Notification email sent.")
-    except:
-        logging.debug("Failed to send notification email!")
+    except Exception as e:
+        logging.debug(f"Failed to send notification email! Error: {e}")
