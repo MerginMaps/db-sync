@@ -42,8 +42,6 @@ def send_email(error: str, config: Dynaconf) -> None:
     msg.set_content(error)
 
     sender_email = config.notification.email_sender
-    if "smtp_username" in config.notification:
-        sender_email = config.notification.smtp_username
 
     try:
         smtp_conn = create_connection_and_log_user(config)
