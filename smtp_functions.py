@@ -49,4 +49,4 @@ def send_email(error: str, config: Dynaconf) -> None:
         smtp_conn.quit()
         logging.debug("Notification email sent.")
     except:
-        logging.debug("Failed to send notification email!")
+        logging.exception("Failed to send notification email!")
