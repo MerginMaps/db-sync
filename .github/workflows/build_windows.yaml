@@ -12,10 +12,11 @@ jobs:
 
       - uses: actions/checkout@v4
       
-      - uses: robinraju/release-downloader@v1.10
+      - uses: robinraju/release-downloader@v1
         with: 
           repository: "MerginMaps/geodiff"    
-          latest: true
+          latest: false
+          tag: '2.0.2' # latest tag with windows binaries
           fileName: "geodiff_windows_binaries.zip"
           zipBall: false
           out-file-path: "scripts/windows_binaries"
