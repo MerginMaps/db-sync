@@ -721,7 +721,7 @@ def revert_local_changes(
     return leftovers
 
 
-def pull(conn_cfg, mc):
+def pull(conn_cfg, mc, id=0):
     """Downloads any changes from Mergin Maps and applies them to the database"""
 
     logging.debug(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
@@ -731,7 +731,9 @@ def pull(conn_cfg, mc):
     work_dir = os.path.join(
         config.working_dir,
         project_name,
+        f"{id}"
     )
+
     gpkg_full_path = os.path.join(
         work_dir,
         conn_cfg.sync_file,
@@ -868,7 +870,7 @@ def pull(conn_cfg, mc):
     )
 
 
-def status(conn_cfg, mc):
+def status(conn_cfg, mc, id=0):
     """Figure out if there are any pending changes in the database or in Mergin Maps"""
 
     logging.debug(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
@@ -879,6 +881,7 @@ def status(conn_cfg, mc):
     work_dir = os.path.join(
         config.working_dir,
         project_name,
+        f"{id}"
     )
     gpkg_full_path = os.path.join(
         work_dir,
@@ -967,7 +970,7 @@ def status(conn_cfg, mc):
         _print_changes_summary(summary)
 
 
-def push(conn_cfg, mc):
+def push(conn_cfg, mc, id=0):
     """Take changes in the 'modified' schema in the database and push them to Mergin Maps"""
 
     logging.debug(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
@@ -986,6 +989,7 @@ def push(conn_cfg, mc):
     work_dir = os.path.join(
         config.working_dir,
         project_name,
+        f"{id}"
     )
     gpkg_full_path = os.path.join(
         work_dir,
@@ -1076,6 +1080,7 @@ def init(
     conn_cfg,
     mc,
     from_gpkg=True,
+    id=0
 ):
     """Initialize the dbsync so that it is possible to do two-way sync between Mergin Maps and a database"""
 
@@ -1109,11 +1114,14 @@ def init(
     work_dir = os.path.join(
         config.working_dir,
         project_name,
+        f"{id}"
     )
+
     gpkg_full_path = os.path.join(
         work_dir,
         conn_cfg.sync_file,
     )
+
     if modified_schema_exists and base_schema_exists:
         logging.debug("Modified and base schemas already exist")
         # this is not a first run of db-sync init
@@ -1442,26 +1450,34 @@ def init(
 
 def dbsync_init(mc):
     from_gpkg = config.init_from.lower() == "gpkg"
+    i = 0
     for conn in config.connections:
         init(
             conn,
             mc,
             from_gpkg=from_gpkg,
+            id=i
         )
+
+        i += 1
 
     logging.debug("Init done!")
 
 
 def dbsync_pull(mc):
+    i = 0
     for conn in config.connections:
-        pull(conn, mc)
+        pull(conn, mc, id=i)
+        i += 1
 
     logging.debug("Pull done!")
 
 
 def dbsync_push(mc):
+    i = 0
     for conn in config.connections:
-        push(conn, mc)
+        push(conn, mc, id=i)
+        i += 1
 
     logging.debug("Push done!")
 
@@ -1469,8 +1485,10 @@ def dbsync_push(mc):
 def dbsync_status(
     mc,
 ):
+    i = 0
     for conn in config.connections:
-        status(conn, mc)
+        status(conn, mc, id=i)
+        i += 1
 
 
 def clean(conn_cfg, mc):
@@ -1529,6 +1547,7 @@ def dbsync_clean(
 ):
     for conn in config.connections:
         clean(conn, mc)
+
 
     logging.debug("Cleaning done!")
 
