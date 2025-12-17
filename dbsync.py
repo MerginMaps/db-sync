@@ -520,29 +520,9 @@ def _print_mergin_changes(
         logging.debug("  removed: " + item["path"])
 
 
-# Dictionary used by _get_mergin_project() function below.
-# key = path to a local dir with Mergin project, value = cached MerginProject object
-cached_mergin_project_objects = {}
-
-
-def _get_mergin_project(work_path) -> MerginProject:
-    """
-    Returns a cached MerginProject object or creates one if it does not exist yet.
-    This is to avoid creating many of these objects (e.g. every pull/push) because it does
-    initialization of geodiff as well, so things should be 1. a bit faster, and 2. safer.
-    (Safer because we are having a cycle of refs between GeoDiff and MerginProject objects
-    related to logging - and untangling those would need some extra calls when we are done
-    with MerginProject. But since we use the object all the time, it's better to cache it anyway.)
-    """
-    if work_path not in cached_mergin_project_objects:
-        cached_mergin_project_objects[work_path] = MerginProject(work_path)
-    cached_mergin_project_objects[work_path]._read_metadata()
-    return cached_mergin_project_objects[work_path]
-
-
 def _get_project_version(work_path) -> str:
     """Returns the current version of the project"""
-    mp = _get_mergin_project(work_path)
+    mp = MerginProject(work_path)
     return mp.version()
 
 
@@ -740,7 +720,7 @@ def pull(conn_cfg, mc):
     _check_has_working_dir(work_dir)
     _check_has_sync_file(gpkg_full_path)
 
-    mp = _get_mergin_project(work_dir)
+    mp = MerginProject(work_dir)
     mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
@@ -889,7 +869,7 @@ def status(conn_cfg, mc):
     _check_has_sync_file(gpkg_full_path)
 
     # get basic information
-    mp = _get_mergin_project(work_dir)
+    mp = MerginProject(work_dir)
     mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
@@ -994,7 +974,7 @@ def push(conn_cfg, mc):
     _check_has_working_dir(work_dir)
     _check_has_sync_file(gpkg_full_path)
 
-    mp = _get_mergin_project(work_dir)
+    mp = MerginProject(work_dir)
     mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
@@ -1161,7 +1141,7 @@ def init(
                     None,
                 )
                 db_project_id = uuid.UUID(db_project_id_str) if db_project_id_str else None
-                mp = _get_mergin_project(work_dir)
+                mp = MerginProject(work_dir)
                 local_project_id = _get_project_id(mp)
                 if (db_project_id and local_project_id) and (db_project_id != local_project_id):
                     raise DbSyncError("Database project ID doesn't match local project ID. " f"{FORCE_INIT_MESSAGE}")
@@ -1186,7 +1166,7 @@ def init(
     # make sure we have working directory now
     _check_has_working_dir(work_dir)
     local_version = _get_project_version(work_dir)
-    mp = _get_mergin_project(work_dir)
+    mp = MerginProject(work_dir)
     # Make sure that local project ID (if available) is the same as on  the server
     _validate_local_project_id(mp, mc)
 
