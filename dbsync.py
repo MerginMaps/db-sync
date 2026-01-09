@@ -536,6 +536,10 @@ def _get_mergin_project(work_path) -> MerginProject:
     """
     if work_path not in cached_mergin_project_objects:
         cached_mergin_project_objects[work_path] = MerginProject(work_path)
+    # Clear metadata so we re-read the state.
+    # This is needed since otherwise we can have multiple MerginProject
+    # instances of the same workpath with different state.
+    cached_mergin_project_objects[work_path]._metadata = None
     cached_mergin_project_objects[work_path]._read_metadata()
     return cached_mergin_project_objects[work_path]
 
