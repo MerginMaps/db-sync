@@ -1,8 +1,12 @@
 # Changelog
 
-## 2.1.2
+## 2.2.0
 
-- Fix datetime.timedelta comparison to seconds  
+- Add support for constraints (geodiff 2.1.0)
+- Fix timestamps with microseconds (#145) (geodiff 2.1.0)
+- Upgraded MM python API client (0.8.3 to 0.11.0)
+- Added `--show-config` command line argument to the daemon
+- Fixes to email sending in case of errors
 
 ## 2.1.1
 
