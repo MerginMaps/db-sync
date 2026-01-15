@@ -16,7 +16,7 @@ jobs:
         with: 
           repository: "MerginMaps/geodiff"    
           latest: true
-          fileName: "geodiff_windows_binaries.zip"
+          fileName: "geodiff.exe.zip"
           zipBall: false
           out-file-path: "scripts/windows_binaries"
           extract: true
@@ -24,7 +24,7 @@ jobs:
       - name: Delete files from binaries
         run: |
           cd scripts/windows_binaries
-          del geodiff_*.zip
+          del geodiff.exe.zip
     
       - uses: actions/setup-python@v5
         with:
