@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Mergin DB Sync{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="dashboard">
+        <div class="dashboard-header">
+            <h1>Sync Dashboard</h1>
+            <div class="status-indicator" id="status-indicator">
+                <span class="status-dot"></span>
+                <span class="status-text">Checking...</span>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Control Panel -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Sync Control</h2>
+                </div>
+                <div class="card-body">
+                    <div class="control-buttons">
+                        <button type="button" class="btn btn-success" id="start-btn">
+                            <span class="btn-text">Start Sync</span>
+                            <span class="btn-spinner" style="display:none;"></span>
+                        </button>
+                        <button type="button" class="btn btn-danger" id="stop-btn" disabled>
+                            <span class="btn-text">Stop Sync</span>
+                            <span class="btn-spinner" style="display:none;"></span>
+                        </button>
+                        <button type="button" class="btn btn-warning" id="reinit-btn">
+                            <span class="btn-text">Re-initialize</span>
+                            <span class="btn-spinner" style="display:none;"></span>
+                        </button>
+                    </div>
+                    <div id="control-status" class="status-message"></div>
+                </div>
+            </div>
+
+            <!-- Configuration Summary -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Configuration</h2>
+                    <a href="{{ url_for('wizard') }}" class="btn btn-sm btn-secondary">Edit</a>
+                </div>
+                <div class="card-body">
+                    {% if config %}
+                    <div class="config-summary">
+                        <div class="config-item">
+                            <span class="config-label">Mergin Server:</span>
+                            <span class="config-value">{{ config.mergin.url if config.mergin else 'Not configured' }}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Username:</span>
+                            <span class="config-value">{{ config.mergin.username if config.mergin else 'Not configured' }}</span>
+                        </div>
+                        {% if config.connections and config.connections|length > 0 %}
+                        <div class="config-item">
+                            <span class="config-label">Project:</span>
+                            <span class="config-value">{{ config.connections[0].mergin_project }}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">GeoPackage:</span>
+                            <span class="config-value">{{ config.connections[0].sync_file }}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Modified Schema:</span>
+                            <span class="config-value">{{ config.connections[0].modified }}</span>
+                        </div>
+                        <div class="config-item">
+                            <span class="config-label">Base Schema:</span>
+                            <span class="config-value">{{ config.connections[0].base }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="config-item">
+                            <span class="config-label">Init From:</span>
+                            <span class="config-value">{{ config.init_from if config.init_from else 'gpkg' }}</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="no-config">No configuration found. <a href="{{ url_for('wizard') }}">Run the setup wizard</a> to configure.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Log Viewer -->
+            <div class="card card-full-width">
+                <div class="card-header">
+                    <h2>Sync Logs</h2>
+                    <button type="button" class="btn btn-sm btn-secondary" id="clear-logs-btn">Clear</button>
+                </div>
+                <div class="card-body">
+                    <div class="log-viewer" id="log-viewer">
+                        <div class="log-content" id="log-content">
+                            <p class="log-placeholder">Logs will appear here when sync is running...</p>
+                        </div>
+                    </div>
+                    <div class="log-controls">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="auto-scroll" checked>
+                            Auto-scroll
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

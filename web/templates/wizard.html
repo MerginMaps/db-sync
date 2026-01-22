@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Setup Wizard - Mergin DB Sync{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="wizard">
+        <div class="wizard-header">
+            <h1>Configuration Wizard</h1>
+            <p>Configure your Mergin Maps to PostgreSQL synchronization</p>
+        </div>
+
+        <div class="wizard-progress">
+            <div class="progress-step active" data-step="1">
+                <span class="step-number">1</span>
+                <span class="step-label">Mergin</span>
+            </div>
+            <div class="progress-step" data-step="2">
+                <span class="step-number">2</span>
+                <span class="step-label">PostgreSQL</span>
+            </div>
+            <div class="progress-step" data-step="3">
+                <span class="step-number">3</span>
+                <span class="step-label">Project</span>
+            </div>
+            <div class="progress-step" data-step="4">
+                <span class="step-number">4</span>
+                <span class="step-label">GeoPackage</span>
+            </div>
+            <div class="progress-step" data-step="5">
+                <span class="step-number">5</span>
+                <span class="step-label">Schemas</span>
+            </div>
+            <div class="progress-step" data-step="6">
+                <span class="step-number">6</span>
+                <span class="step-label">Init</span>
+            </div>
+        </div>
+
+        <div class="wizard-content">
+            <!-- Step 1: Mergin Credentials -->
+            <div class="wizard-step active" data-step="1">
+                <h2>Mergin Maps Credentials</h2>
+                <p class="step-description">Enter your Mergin Maps server credentials</p>
+
+                <div class="form-group">
+                    <label for="mergin-url">Server URL</label>
+                    <input type="url" id="mergin-url" class="form-control" value="https://app.merginmaps.com" placeholder="https://app.merginmaps.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="mergin-username">Username</label>
+                    <input type="text" id="mergin-username" class="form-control" placeholder="Your Mergin Maps username">
+                </div>
+
+                <div class="form-group">
+                    <label for="mergin-password">Password</label>
+                    <input type="password" id="mergin-password" class="form-control" placeholder="Your Mergin Maps password">
+                </div>
+
+                <button type="button" class="btn btn-secondary" id="test-mergin-btn">
+                    <span class="btn-text">Test Connection</span>
+                    <span class="btn-spinner" style="display:none;"></span>
+                </button>
+                <div id="mergin-status" class="status-message"></div>
+            </div>
+
+            <!-- Step 2: PostgreSQL Connection -->
+            <div class="wizard-step" data-step="2">
+                <h2>PostgreSQL Connection</h2>
+                <p class="step-description">Enter your PostgreSQL database connection details</p>
+
+                <div class="form-group">
+                    <label for="pg-conn-info">Connection String</label>
+                    <input type="text" id="pg-conn-info" class="form-control" placeholder="host=localhost dbname=mydb user=myuser password=mypassword">
+                    <small class="form-help">Format: host=... dbname=... user=... password=...</small>
+                </div>
+
+                <button type="button" class="btn btn-secondary" id="test-postgres-btn">
+                    <span class="btn-text">Test Connection</span>
+                    <span class="btn-spinner" style="display:none;"></span>
+                </button>
+                <div id="postgres-status" class="status-message"></div>
+                <div id="postgres-info" class="info-box" style="display:none;"></div>
+            </div>
+
+            <!-- Step 3: Select Mergin Project -->
+            <div class="wizard-step" data-step="3">
+                <h2>Select Mergin Project</h2>
+                <p class="step-description">Choose the Mergin Maps project to synchronize</p>
+
+                <div class="form-group">
+                    <label for="mergin-project">Project</label>
+                    <select id="mergin-project" class="form-control">
+                        <option value="">Loading projects...</option>
+                    </select>
+                </div>
+
+                <button type="button" class="btn btn-secondary" id="refresh-projects-btn">
+                    <span class="btn-text">Refresh Projects</span>
+                    <span class="btn-spinner" style="display:none;"></span>
+                </button>
+                <div id="projects-status" class="status-message"></div>
+            </div>
+
+            <!-- Step 4: Select GeoPackage -->
+            <div class="wizard-step" data-step="4">
+                <h2>Select GeoPackage File</h2>
+                <p class="step-description">Choose the GeoPackage file to synchronize</p>
+
+                <div class="form-group">
+                    <label for="sync-file">GeoPackage File</label>
+                    <select id="sync-file" class="form-control">
+                        <option value="">Select a project first</option>
+                    </select>
+                </div>
+
+                <div id="gpkg-status" class="status-message"></div>
+            </div>
+
+            <!-- Step 5: Schema Names -->
+            <div class="wizard-step" data-step="5">
+                <h2>Database Schema Names</h2>
+                <p class="step-description">Configure the PostgreSQL schema names for synchronization</p>
+
+                <div class="form-group">
+                    <label for="schema-modified">Modified Schema</label>
+                    <input type="text" id="schema-modified" class="form-control" placeholder="project_data">
+                    <small class="form-help">Schema that will be synchronized with Mergin Maps</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="schema-base">Base Schema</label>
+                    <input type="text" id="schema-base" class="form-control" placeholder="project_data_base">
+                    <small class="form-help">Internal schema for tracking changes (auto-created)</small>
+                </div>
+
+                <div id="schema-status" class="status-message"></div>
+            </div>
+
+            <!-- Step 6: Init Direction -->
+            <div class="wizard-step" data-step="6">
+                <h2>Initialization Direction</h2>
+                <p class="step-description">Choose where to initialize data from</p>
+
+                <div class="radio-group">
+                    <label class="radio-option">
+                        <input type="radio" name="init-from" value="gpkg" checked>
+                        <span class="radio-label">
+                            <strong>From GeoPackage</strong>
+                            <small>Use existing GeoPackage from Mergin Maps project and create database schema</small>
+                        </span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="init-from" value="db">
+                        <span class="radio-label">
+                            <strong>From Database</strong>
+                            <small>Use existing database schema and create GeoPackage in Mergin Maps project</small>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="summary-box">
+                    <h3>Configuration Summary</h3>
+                    <div id="config-summary"></div>
+                </div>
+
+                <button type="button" class="btn btn-primary" id="save-config-btn">
+                    <span class="btn-text">Save Configuration</span>
+                    <span class="btn-spinner" style="display:none;"></span>
+                </button>
+                <div id="save-status" class="status-message"></div>
+            </div>
+        </div>
+
+        <div class="wizard-footer">
+            <button type="button" class="btn btn-secondary" id="prev-btn" disabled>Previous</button>
+            <button type="button" class="btn btn-primary" id="next-btn">Next</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/wizard.js') }}"></script>
+{% endblock %}

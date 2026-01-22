@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Mergin DB Sync{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="welcome-card">
+        <h1>Welcome to Mergin DB Sync</h1>
+        <p>Two-way synchronization between Mergin Maps and PostgreSQL</p>
+        <div class="welcome-actions">
+            <a href="{{ url_for('wizard') }}" class="btn btn-primary">Setup Wizard</a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Dashboard</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

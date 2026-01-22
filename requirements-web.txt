@@ -1,0 +1,6 @@
+# Web interface dependencies for mergin-db-sync
+flask>=2.0
+pyyaml>=6.0
+requests
+psycopg2
+
