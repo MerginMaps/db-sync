@@ -34,6 +34,12 @@ pyinstaller ../dbsync_daemon.py ^
 	--noconfirm ^
 	--add-binary="./windows_binaries/geodiff.exe;lib" ^
 	--hidden-import dynaconf ^
+	--hidden-import sqlite3 ^
+	--hidden-import pygeodiff ^
 	--collect-all mergin ^
+	--collect-all sqlite3 ^
+	--collect-all pygeodiff ^
+	--add-binary="%PYGEODIFF_PYD%;pygeodiff" ^
+	--add-binary="%SQLITE3_DLL%;." ^
 	--clean ^
 	-F
