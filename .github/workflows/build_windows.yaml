@@ -13,9 +13,10 @@ jobs:
       - uses: actions/checkout@v4
       
       - uses: robinraju/release-downloader@v1.10
-        with: 
-          repository: "MerginMaps/geodiff"    
-          latest: true
+        with:
+          repository: "MerginMaps/geodiff"
+          # latest: true
+          tag: "2.1.0"
           fileName: "geodiff.exe.zip"
           zipBall: false
           out-file-path: "scripts/windows_binaries"
