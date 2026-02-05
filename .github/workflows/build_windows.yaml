@@ -16,7 +16,7 @@ jobs:
         with:
           repository: "MerginMaps/geodiff"
           # latest: true
-          tag: "2.1.0"
+          tag: "2.2.0"
           fileName: "geodiff.exe.zip"
           zipBall: false
           out-file-path: "scripts/windows_binaries"

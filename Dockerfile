@@ -29,7 +29,7 @@ COPY requirements.txt /tmp/
 RUN pip install -r /tmp/requirements.txt
 
 # geodiff is needed with PostgreSQL support - we have to compile it
-RUN git clone --branch 2.1.0 https://github.com/merginmaps/geodiff.git
+RUN git clone --branch 2.2.0 https://github.com/merginmaps/geodiff.git
 RUN cd geodiff && mkdir build && cd build && \
     cmake -DWITH_POSTGRESQL=TRUE ../geodiff && \
     make
