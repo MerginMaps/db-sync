@@ -675,6 +675,7 @@ def pull(conn_cfg, mc):
 
     logging.debug(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
     ignored_tables = get_ignored_tables(conn_cfg)
+    include_tables = get_include_tables(conn_cfg)
 
     project_name = conn_cfg.mergin_project.split("/")[1]
     work_dir = os.path.join(
@@ -690,7 +691,10 @@ def pull(conn_cfg, mc):
     _check_has_sync_file(gpkg_full_path)
 
     mp = _get_mergin_project(work_dir)
-    mp.set_tables_to_skip(ignored_tables)
+    if include_tables:
+        mp.set_tables_to_include(include_tables)
+    else:
+        mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
 
@@ -752,6 +756,7 @@ def pull(conn_cfg, mc):
         conn_cfg.modified,
         tmp_base2our,
         ignored_tables,
+        include_tables,
     )
 
     needs_rebase = False
@@ -779,6 +784,7 @@ def pull(conn_cfg, mc):
         gpkg_basefile,
         tmp_base2their,
         ignored_tables,
+        include_tables,
     )
 
     # summarize changes
@@ -790,8 +796,8 @@ def pull(conn_cfg, mc):
 
     if not needs_rebase:
         logging.debug("Applying new version [no rebase]")
-        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their, ignored_tables)
-        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified, tmp_base2their, ignored_tables)
+        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their, ignored_tables, include_tables)
+        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified, tmp_base2their, ignored_tables, include_tables)
     else:
         logging.debug("Applying new version [WITH rebase]")
         tmp_conflicts = os.path.join(tmp_dir, f"{project_name}-dbsync-pull-conflicts")
@@ -803,8 +809,9 @@ def pull(conn_cfg, mc):
             tmp_base2their,
             tmp_conflicts,
             ignored_tables,
+            include_tables,
         )
-        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their, ignored_tables)
+        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their, ignored_tables, include_tables)
 
     os.remove(gpkg_basefile_old)
     conn = psycopg2.connect(conn_cfg.conn_info)
@@ -822,6 +829,7 @@ def status(conn_cfg, mc):
 
     logging.debug(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
     ignored_tables = get_ignored_tables(conn_cfg)
+    include_tables = get_include_tables(conn_cfg)
 
     project_name = conn_cfg.mergin_project.split("/")[1]
 
@@ -839,7 +847,10 @@ def status(conn_cfg, mc):
 
     # get basic information
     mp = _get_mergin_project(work_dir)
-    mp.set_tables_to_skip(ignored_tables)
+    if include_tables:
+        mp.set_tables_to_include(include_tables)
+    else:
+        mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
     project_path = mp.project_full_name()
@@ -905,6 +916,7 @@ def status(conn_cfg, mc):
         conn_cfg.modified,
         tmp_changeset_file,
         ignored_tables,
+        include_tables,
     )
 
     if os.path.getsize(tmp_changeset_file) == 0:
@@ -921,6 +933,7 @@ def push(conn_cfg, mc):
 
     logging.debug(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
     ignored_tables = get_ignored_tables(conn_cfg)
+    include_tables = get_include_tables(conn_cfg)
 
     project_name = conn_cfg.mergin_project.split("/")[1]
 
@@ -944,7 +957,10 @@ def push(conn_cfg, mc):
     _check_has_sync_file(gpkg_full_path)
 
     mp = _get_mergin_project(work_dir)
-    mp.set_tables_to_skip(ignored_tables)
+    if include_tables:
+        mp.set_tables_to_include(include_tables)
+    else:
+        mp.set_tables_to_skip(ignored_tables)
     if mp.geodiff is None:
         raise DbSyncError("Mergin Maps client installation problem: geodiff not available")
 
@@ -991,6 +1007,7 @@ def push(conn_cfg, mc):
         conn_cfg.modified,
         tmp_changeset_file,
         ignored_tables,
+        include_tables,
     )
 
     if os.path.getsize(tmp_changeset_file) == 0:
@@ -1003,7 +1020,7 @@ def push(conn_cfg, mc):
 
     # write changes to the local geopackage
     logging.debug("Writing DB changes to working dir...")
-    _geodiff_apply_changeset("sqlite", "", gpkg_full_path, tmp_changeset_file, ignored_tables)
+    _geodiff_apply_changeset("sqlite", "", gpkg_full_path, tmp_changeset_file, ignored_tables, include_tables)
 
     # write to the server
     try:
@@ -1017,7 +1034,7 @@ def push(conn_cfg, mc):
 
     # update base schema in the DB
     logging.debug("Updating DB base schema...")
-    _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_changeset_file, ignored_tables)
+    _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_changeset_file, ignored_tables, include_tables)
     _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
 
 
@@ -1030,6 +1047,7 @@ def init(
 
     logging.debug(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
     ignored_tables = get_ignored_tables(conn_cfg)
+    include_tables = get_include_tables(conn_cfg)
 
     project_name = conn_cfg.mergin_project.split("/")[1]
 
@@ -1085,6 +1103,7 @@ def init(
                 conn_cfg.conn_info,
                 conn_cfg.base,
                 ignored_tables,
+                include_tables,
                 summary_only=False,
             )
             changes = json.dumps(changes_gpkg_base, indent=2)
@@ -1166,6 +1185,7 @@ def init(
                 conn_cfg.conn_info,
                 conn_cfg.modified,
                 ignored_tables,
+                include_tables,
             )
             logging.debug("Checking 'base' schema content...")
             summary_base = _compare_datasets(
@@ -1176,6 +1196,7 @@ def init(
                 conn_cfg.conn_info,
                 conn_cfg.base,
                 ignored_tables,
+                include_tables,
             )
             if len(summary_base):
                 # seems someone modified base schema manually - this should never happen!
@@ -1219,6 +1240,7 @@ def init(
                 conn_cfg.conn_info,
                 conn_cfg.modified,
                 ignored_tables,
+                include_tables,
             )
 
             # COPY: modified -> base
@@ -1230,6 +1252,7 @@ def init(
                 conn_cfg.conn_info,
                 conn_cfg.base,
                 ignored_tables,
+                include_tables,
             )
 
             # sanity check to verify that right after initialization we do not have any changes
@@ -1243,6 +1266,7 @@ def init(
                 conn_cfg.conn_info,
                 conn_cfg.base,
                 ignored_tables,
+                include_tables,
                 summary_only=False,
             )
             # mark project version into db schema
@@ -1285,6 +1309,7 @@ def init(
                 "",
                 gpkg_full_path,
                 ignored_tables,
+                include_tables,
             )
             logging.debug("Checking 'base' schema content...")
             summary_base = _compare_datasets(
@@ -1295,6 +1320,7 @@ def init(
                 "",
                 gpkg_full_path,
                 ignored_tables,
+                include_tables,
             )
             if len(summary_base):
                 logging.debug(
@@ -1338,6 +1364,7 @@ def init(
                 conn_cfg.conn_info,
                 conn_cfg.base,
                 ignored_tables,
+                include_tables,
             )
 
             # COPY: modified -> gpkg
@@ -1349,6 +1376,7 @@ def init(
                 "",
                 gpkg_full_path,
                 ignored_tables,
+                include_tables,
             )
 
             # sanity check to verify that right after initialization we do not have any changes
@@ -1362,6 +1390,7 @@ def init(
                 conn_cfg.conn_info,
                 conn_cfg.base,
                 ignored_tables,
+                include_tables,
                 summary_only=False,
             )
             if len(changes_gpkg_base):
