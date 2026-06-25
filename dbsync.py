@@ -42,6 +42,7 @@ from config import (
     config,
     validate_config,
     get_ignored_tables,
+    get_include_tables,
     ConfigError,
 )
 
@@ -94,6 +95,23 @@ def _tables_list_to_string(
     tables,
 ):
     return ";".join(tables)
+
+
+def _tables_filter_args(
+    ignored_tables,
+    include_tables,
+):
+    """Build the geodiff CLI args for table filtering.
+
+    ``skip_tables`` and ``include_tables`` are mutually exclusive (validated in
+    ``validate_config``), so at most one of them is ever set. Returns an empty
+    list when no filtering is configured.
+    """
+    if include_tables:
+        return ["--include-tables", _tables_list_to_string(include_tables)]
+    if ignored_tables:
+        return ["--skip-tables", _tables_list_to_string(ignored_tables)]
+    return []
 
 
 def _check_has_working_dir(
