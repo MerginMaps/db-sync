@@ -11,6 +11,7 @@ import platform
 import smtplib
 import subprocess
 import tempfile
+import typing
 
 from dynaconf import Dynaconf
 import dynaconf
@@ -163,26 +164,35 @@ def validate_config(config):
             raise ConfigError(f"Config SMTP Error: {err}.")
 
 
+def _get_tables(tables: typing.Union[None, str, typing.List, dynaconf.vendor.box.box_list.BoxList], param_name: str):
+    if tables is None:
+        return []
+    elif isinstance(tables, str):
+        return [tables]
+    elif isinstance(tables, list):
+        if len(tables) < 1:
+            return []
+        elif isinstance(tables, dynaconf.vendor.box.box_list.BoxList):
+            return tables.to_list()
+        return tables
+    else:
+        raise ConfigError(f"Config error: `{param_name}` parameter should be a list or a string.")
+
+
 def get_ignored_tables(
     connection,
 ):
     if "skip_tables" in connection:
-        if connection.skip_tables is None:
-            return []
-        elif isinstance(
-            connection.skip_tables,
-            str,
-        ):
-            return [connection.skip_tables]
-        elif isinstance(
-            connection.skip_tables,
-            list,
-        ):
-            if len(connection.skip_tables) < 1:
-                return []
-            elif isinstance(connection.skip_tables, dynaconf.vendor.box.box_list.BoxList):
-                return connection.skip_tables.to_list()
-            return connection.skip_tables
+        return _get_tables(connection.skip_tables, "skip_tables")
+    else:
+        return []
+
+
+def get_include_tables(
+    connection,
+):
+    if "include_tables" in connection:
+        return _get_tables(connection.include_tables, "include_tables")
     else:
         return []
 
