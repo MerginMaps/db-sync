@@ -89,6 +89,11 @@ def validate_config(config):
                 "Config error: Name of the Mergin Maps project should be provided in the namespace/name format."
             )
 
+        if "skip_tables" in conn and "include_tables" in conn:
+            raise ConfigError(
+                "Config error: `skip_tables` and `include_tables` cannot both be set for the same connection."
+            )
+
         if "skip_tables" in conn:
             if conn.skip_tables is None:
                 continue
@@ -101,7 +106,21 @@ def validate_config(config):
                 conn.skip_tables,
                 list,
             ):
-                raise ConfigError("Config error: Ignored tables parameter should be a list")
+                raise ConfigError("Config error: `skip_tables` parameter should be a list")
+
+        if "include_tables" in conn:
+            if conn.include_tables is None:
+                continue
+            elif isinstance(
+                conn.include_tables,
+                str,
+            ):
+                continue
+            elif not isinstance(
+                conn.include_tables,
+                list,
+            ):
+                raise ConfigError("Config error: `include_tables` parameter should be a list")
 
     if "notification" in config:
         settings = [
