@@ -217,35 +217,21 @@ def _geodiff_create_changeset(
     modified,
     changeset,
     ignored_tables,
+    include_tables,
 ):
-    if ignored_tables:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "diff",
-                "--driver",
-                driver,
-                conn_info,
-                "--skip-tables",
-                _tables_list_to_string(ignored_tables),
-                base,
-                modified,
-                changeset,
-            ]
-        )
-    else:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "diff",
-                "--driver",
-                driver,
-                conn_info,
-                base,
-                modified,
-                changeset,
-            ]
-        )
+    _run_geodiff(
+        [
+            config.geodiff_exe,
+            "diff",
+            "--driver",
+            driver,
+            conn_info,
+            *_tables_filter_args(ignored_tables, include_tables),
+            base,
+            modified,
+            changeset,
+        ]
+    )
 
 
 def _geodiff_apply_changeset(
@@ -254,33 +240,20 @@ def _geodiff_apply_changeset(
     base,
     changeset,
     ignored_tables,
+    include_tables,
 ):
-    if ignored_tables:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "apply",
-                "--driver",
-                driver,
-                conn_info,
-                "--skip-tables",
-                _tables_list_to_string(ignored_tables),
-                base,
-                changeset,
-            ]
-        )
-    else:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "apply",
-                "--driver",
-                driver,
-                conn_info,
-                base,
-                changeset,
-            ]
-        )
+    _run_geodiff(
+        [
+            config.geodiff_exe,
+            "apply",
+            "--driver",
+            driver,
+            conn_info,
+            *_tables_filter_args(ignored_tables, include_tables),
+            base,
+            changeset,
+        ]
+    )
 
 
 def _geodiff_rebase(
@@ -291,37 +264,22 @@ def _geodiff_rebase(
     base2their,
     conflicts,
     ignored_tables,
+    include_tables,
 ):
-    if ignored_tables:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "rebase-db",
-                "--driver",
-                driver,
-                conn_info,
-                "--skip-tables",
-                _tables_list_to_string(ignored_tables),
-                base,
-                our,
-                base2their,
-                conflicts,
-            ]
-        )
-    else:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "rebase-db",
-                "--driver",
-                driver,
-                conn_info,
-                base,
-                our,
-                base2their,
-                conflicts,
-            ]
-        )
+    _run_geodiff(
+        [
+            config.geodiff_exe,
+            "rebase-db",
+            "--driver",
+            driver,
+            conn_info,
+            *_tables_filter_args(ignored_tables, include_tables),
+            base,
+            our,
+            base2their,
+            conflicts,
+        ]
+    )
 
 
 def _geodiff_list_changes_details(
@@ -386,39 +344,23 @@ def _geodiff_make_copy(
     dst_conn_info,
     dst,
     ignored_tables,
+    include_tables,
 ):
-    if ignored_tables:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "copy",
-                "--driver-1",
-                src_driver,
-                src_conn_info,
-                "--driver-2",
-                dst_driver,
-                dst_conn_info,
-                "--skip-tables",
-                _tables_list_to_string(ignored_tables),
-                src,
-                dst,
-            ]
-        )
-    else:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "copy",
-                "--driver-1",
-                src_driver,
-                src_conn_info,
-                "--driver-2",
-                dst_driver,
-                dst_conn_info,
-                src,
-                dst,
-            ]
-        )
+    _run_geodiff(
+        [
+            config.geodiff_exe,
+            "copy",
+            "--driver-1",
+            src_driver,
+            src_conn_info,
+            "--driver-2",
+            dst_driver,
+            dst_conn_info,
+            *_tables_filter_args(ignored_tables, include_tables),
+            src,
+            dst,
+        ]
+    )
 
 
 def _geodiff_create_changeset_dr(
@@ -430,41 +372,24 @@ def _geodiff_create_changeset_dr(
     dst,
     changeset,
     ignored_tables,
+    include_tables,
 ):
-    if ignored_tables:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "diff",
-                "--driver-1",
-                src_driver,
-                src_conn_info,
-                "--driver-2",
-                dst_driver,
-                dst_conn_info,
-                "--skip-tables",
-                _tables_list_to_string(ignored_tables),
-                src,
-                dst,
-                changeset,
-            ]
-        )
-    else:
-        _run_geodiff(
-            [
-                config.geodiff_exe,
-                "diff",
-                "--driver-1",
-                src_driver,
-                src_conn_info,
-                "--driver-2",
-                dst_driver,
-                dst_conn_info,
-                src,
-                dst,
-                changeset,
-            ]
-        )
+    _run_geodiff(
+        [
+            config.geodiff_exe,
+            "diff",
+            "--driver-1",
+            src_driver,
+            src_conn_info,
+            "--driver-2",
+            dst_driver,
+            dst_conn_info,
+            *_tables_filter_args(ignored_tables, include_tables),
+            src,
+            dst,
+            changeset,
+        ]
+    )
 
 
 def _compare_datasets(
@@ -475,6 +400,7 @@ def _compare_datasets(
     dst_conn_info,
     dst,
     ignored_tables,
+    include_tables,
     summary_only=True,
 ):
     """Compare content of two datasets (from various drivers) and return geodiff JSON summary of changes"""
@@ -498,6 +424,7 @@ def _compare_datasets(
         dst,
         tmp_changeset,
         ignored_tables,
+        include_tables,
     )
     if summary_only:
         return _geodiff_list_changes_summary(tmp_changeset)
