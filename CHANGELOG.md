@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.0
+
+- Add `include_tables` connection option to sync only the listed tables (mutually exclusive with `skip_tables`)
+
 ## 2.2.0
 
 - Add support for constraints (geodiff 2.1.0)
