@@ -80,7 +80,9 @@ def cleanup_db(
     cur.execute("COMMIT")
 
 
-def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables=[], *extra_init_files):
+def init_sync_from_geopackage(
+    mc, project_name, source_gpkg_path, ignored_tables=[], include_tables=None, *extra_init_files
+):
     """
     Initialize sync from given GeoPackage file:
     - (re)create Mergin Maps project with the file
@@ -151,6 +153,12 @@ def init_sync_from_geopackage(mc, project_name, source_gpkg_path, ignored_tables
             connection["skip_tables"] = [ignored_tables]
         elif isinstance(ignored_tables, list):
             connection["skip_tables"] = ignored_tables
+
+    if include_tables:
+        if isinstance(include_tables, str):
+            connection["include_tables"] = [include_tables]
+        elif isinstance(include_tables, list):
+            connection["include_tables"] = include_tables
 
     config.update(
         {

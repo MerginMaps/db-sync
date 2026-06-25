@@ -8,7 +8,7 @@ License: MIT
 
 import pytest
 
-from config import ConfigError, config, get_ignored_tables, validate_config
+from config import ConfigError, config, get_ignored_tables, get_include_tables, validate_config
 
 from .conftest import _reset_config
 
@@ -344,4 +344,48 @@ def test_config_notification_setup():
     )
 
     with pytest.raises(ConfigError, match="Config SMTP Error"):
+        validate_config(config)
+
+
+def test_include_tables():
+    _reset_config()
+    base = dict(config.connections[0])
+
+    for value in (None, [], "table", ["table"]):
+        config.update({"CONNECTIONS": [{**base, "include_tables": value}]})
+        validate_config(config)
+
+    # invalid type
+    config.update({"CONNECTIONS": [{**base, "include_tables": 42}]})
+    with pytest.raises(ConfigError, match="`include_tables` parameter should be a list"):
+        validate_config(config)
+
+
+def test_get_include_tables():
+    _reset_config()
+    base = dict(config.connections[0])
+
+    config.update({"CONNECTIONS": [{**base, "include_tables": None}]})
+    assert get_include_tables(config.connections[0]) == []
+
+    config.update({"CONNECTIONS": [{**base, "include_tables": []}]})
+    assert get_include_tables(config.connections[0]) == []
+
+    config.update({"CONNECTIONS": [{**base, "include_tables": "table"}]})
+    assert get_include_tables(config.connections[0]) == ["table"]
+
+    config.update({"CONNECTIONS": [{**base, "include_tables": ["table"]}]})
+    assert get_include_tables(config.connections[0]) == ["table"]
+
+    # connection without include_tables configured
+    config.update({"CONNECTIONS": [base]})
+    assert get_include_tables(config.connections[0]) == []
+
+
+def test_skip_and_include_tables_mutually_exclusive():
+    _reset_config()
+    base = dict(config.connections[0])
+
+    config.update({"CONNECTIONS": [{**base, "skip_tables": ["a"], "include_tables": ["b"]}]})
+    with pytest.raises(ConfigError, match="cannot both be set"):
         validate_config(config)
