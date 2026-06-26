@@ -3,22 +3,12 @@ name: Tests for Mergin DB Sync
 on:
   push:
     paths:
-      - "test/**"
-      - "**.py"
-      - "requirements.txt"
-      - "requirements-dev.txt"
-      - "pyproject.toml"
-      - ".github/workflows/tests_mergin_db_sync.yaml"
-  workflow_dispatch:
-    inputs:
-      geodiff_branch:
-        description: "Geodiff branch to compile (default: master)"
-        required: false
-        default: "master"
-      mergin_client_branch:
-        description: "Mergin Python client branch from GitHub (leave empty to install from pip)"
-        required: false
-        default: ""
+    - "test/**"
+    - "**.py"
+    - "requirements.txt"
+    - "requirements-dev.txt"
+    - "pyproject.toml"
+    - ".github/workflows/tests_mergin_db_sync.yaml"
 
 env:
   TEST_GEODIFF_EXE: geodiff
@@ -29,7 +19,9 @@ env:
   TEST_API_WORKSPACE: test-db-sync
 
 jobs:
+
   Tests-for-Mergin-DB-Sync:
+
     runs-on: ubuntu-latest
 
     services:
@@ -44,39 +36,28 @@ jobs:
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
+
       - name: Install Geodiff
         run: |
           sudo apt-get install libsqlite3-dev libpq-dev
-          git clone --branch ${{ inputs.geodiff_branch || 'master' }} https://github.com/MerginMaps/geodiff.git
+          git clone https://github.com/MerginMaps/geodiff.git
           cd geodiff
           mkdir build && cd build
           cmake -DWITH_POSTGRESQL=TRUE ../geodiff
           sudo make install
-          sudo cp geodiff /usr/local/bin
+          sudo cp geodiff /usr/local/bin 
 
-      - name: Check Geodiff version
+      - name: Check Geodiff version    
         run: geodiff version
-
+        
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Install pygeodiff from source
-        if: ${{ inputs.mergin_client_branch != '' }}
-        run: |
-          python3 -m pip install scikit-build cmake ninja
-          cd geodiff
-          python3 -m pip install .
 
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install -r requirements.txt
           python3 -m pip install -r requirements-dev.txt
-
-      - name: Install Mergin client from GitHub
-        if: ${{ inputs.mergin_client_branch != '' }}
-        run: |
-          python3 -m pip install --no-deps git+https://github.com/MerginMaps/python-api-client.git@${{ inputs.mergin_client_branch }}
 
       - name: Run tests
         run: |
