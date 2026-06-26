@@ -76,7 +76,7 @@ jobs:
       - name: Install Mergin client from GitHub
         if: ${{ inputs.mergin_client_branch != '' }}
         run: |
-          python3 -m pip install git+https://github.com/MerginMaps/python-api-client.git@${{ inputs.mergin_client_branch }}
+          python3 -m pip install --no-deps git+https://github.com/MerginMaps/python-api-client.git@${{ inputs.mergin_client_branch }}
 
       - name: Run tests
         run: |
