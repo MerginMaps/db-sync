@@ -880,7 +880,7 @@ def status(conn_cfg, mc):
     logging.debug("")
 
     logging.debug("Server is at version " + server_info["version"])
-    status_pull = mp.get_pull_changes(server_info["files"])
+    status_pull = mp.get_pull_changes(server_info["files"], server_info["version"])
     if status_pull["added"] or status_pull["updated"] or status_pull["removed"]:
         logging.debug("There are pending changes on server:")
         _print_mergin_changes(status_pull)
