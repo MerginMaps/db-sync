@@ -796,8 +796,12 @@ def pull(conn_cfg, mc):
 
     if not needs_rebase:
         logging.debug("Applying new version [no rebase]")
-        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their, ignored_tables, include_tables)
-        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified, tmp_base2their, ignored_tables, include_tables)
+        _geodiff_apply_changeset(
+            conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their, ignored_tables, include_tables
+        )
+        _geodiff_apply_changeset(
+            conn_cfg.driver, conn_cfg.conn_info, conn_cfg.modified, tmp_base2their, ignored_tables, include_tables
+        )
     else:
         logging.debug("Applying new version [WITH rebase]")
         tmp_conflicts = os.path.join(tmp_dir, f"{project_name}-dbsync-pull-conflicts")
@@ -811,7 +815,9 @@ def pull(conn_cfg, mc):
             ignored_tables,
             include_tables,
         )
-        _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their, ignored_tables, include_tables)
+        _geodiff_apply_changeset(
+            conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_base2their, ignored_tables, include_tables
+        )
 
     os.remove(gpkg_basefile_old)
     conn = psycopg2.connect(conn_cfg.conn_info)
@@ -1034,7 +1040,9 @@ def push(conn_cfg, mc):
 
     # update base schema in the DB
     logging.debug("Updating DB base schema...")
-    _geodiff_apply_changeset(conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_changeset_file, ignored_tables, include_tables)
+    _geodiff_apply_changeset(
+        conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_changeset_file, ignored_tables, include_tables
+    )
     _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
 
 
