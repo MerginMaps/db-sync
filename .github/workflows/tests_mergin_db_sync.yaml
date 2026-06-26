@@ -60,6 +60,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pygeodiff from source
+        if: ${{ inputs.mergin_client_branch != '' }}
+        run: |
+          python3 -m pip install scikit-build cmake ninja
+          cd geodiff
+          python3 -m pip install .
+
       - name: Install Python dependencies
         run: |
           python3 -m pip install --upgrade pip
