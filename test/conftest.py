@@ -50,6 +50,9 @@ def _reset_config(project_name: str = "mergin", init_from: str = "gpkg"):
         }
     )
 
+    if "NOTIFICATION" in config:
+        config.unset("NOTIFICATION", force=True)
+
 
 def cleanup(
     mc: MerginClient,
