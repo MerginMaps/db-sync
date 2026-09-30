@@ -673,16 +673,17 @@ def revert_local_changes(
 def _get_work_dir(conn_cfg):
     """Return the local working directory (project checkout) for a connection.
 
-    Each connection gets its own checkout of the Mergin Maps project, keyed on the
-    name of the 'modified' schema (unique per connection). Previously all connections
-    to the same project shared one checkout: the first connection to see a new server
-    version pulled it - updating *every* GeoPackage in the checkout - but only computed
-    and applied the changeset for its own sync file. The remaining connections then saw
-    local_version == server_version and did nothing, so their changes never reached
-    the database and no error was logged (see issue #163).
+    Each connection gets its own checkout of the Mergin Maps project in
+    ``<working_dir>/<project name>-<modified schema>``; the modified schema is
+    unique per connection. Previously all connections to the same project shared
+    ``<working_dir>/<project name>``: the first connection to see a new server
+    version pulled it - updating *every* GeoPackage in the checkout - but only
+    computed and applied the changeset for its own sync file. The remaining
+    connections then saw local_version == server_version and did nothing, so
+    their changes never reached the database and no error was logged (#163).
     """
     project_name = conn_cfg.mergin_project.split("/")[1]
-    return os.path.join(config.working_dir, project_name, conn_cfg.modified)
+    return os.path.join(config.working_dir, f"{project_name}-{conn_cfg.modified}")
 
 
 def pull(conn_cfg, mc):
@@ -1062,8 +1063,6 @@ def init(
     logging.debug(f"Processing Mergin Maps project '{conn_cfg.mergin_project}'")
     ignored_tables = get_ignored_tables(conn_cfg)
     include_tables = get_include_tables(conn_cfg)
-
-    project_name = conn_cfg.mergin_project.split("/")[1]
 
     # let's start with various environment checks to make sure
     # the environment is set up correctly before doing any work

@@ -216,6 +216,14 @@ def name_project_sync_dir(project_name: str) -> str:
     )
 
 
+def name_project_checkout_dir(project_name: str) -> str:
+    """Where db-sync keeps the connection's checkout: <working_dir>/<project>-<modified schema>."""
+    return os.path.join(
+        name_project_sync_dir(project_name),
+        project_name + "-" + name_db_schema_main(project_name),
+    )
+
+
 def complete_project_name(project_name: str) -> str:
     return WORKSPACE + "/" + project_name
 

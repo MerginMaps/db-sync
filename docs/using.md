@@ -8,7 +8,7 @@ content of the tables in the database and in the GeoPackage the same.
 
 A project with several GeoPackage files needs one connection per file (see the `connections` list in the
 configuration). Each connection keeps its own local checkout of the project in
-`<working_dir>/<project name>/<modified schema>`.
+`<working_dir>/<project name>-<modified schema>`.
 
 There are two ways how the synchronization can be started:
  1. Init from GeoPackage: if you have a Mergin Maps project with an existing GeoPackage, the tool will
