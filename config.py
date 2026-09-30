@@ -123,6 +123,11 @@ def validate_config(config):
             ):
                 raise ConfigError("Config error: `include_tables` parameter should be a list")
 
+    if "daemon" in config and "max_retries" in config.daemon:
+        max_retries = config.daemon.max_retries
+        if isinstance(max_retries, bool) or not isinstance(max_retries, int) or max_retries < 0:
+            raise ConfigError("Config error: `max_retries` in `daemon` must be a non-negative integer.")
+
     if "notification" in config:
         settings = [
             "smtp_server",

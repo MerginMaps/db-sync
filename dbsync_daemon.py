@@ -19,6 +19,11 @@ from log_functions import handle_error_and_exit, setup_logger
 from smtp_functions import send_email
 from version import __version__
 
+# upper limit (in seconds) of the wait time between retries after repeated failures
+MAX_RETRY_WAIT = 600
+# default number of consecutive failed retries of startup (login / init) or unexpected errors before the daemon exits
+DEFAULT_MAX_RETRIES = 10
+
 
 def is_pyinstaller() -> bool:
     if (
@@ -127,6 +132,7 @@ def main():
         validate_config(config)
     except ConfigError as e:
         handle_error_and_exit(e)
+    max_retries = config.get("daemon.max_retries", DEFAULT_MAX_RETRIES)
 
     send_notifications = "notification" in config
 
@@ -145,21 +151,17 @@ def main():
     if args.force_init and args.skip_init:
         handle_error_and_exit("Cannot use `--force-init` with `--skip-init` Initialization is required. ")
 
-    logging.debug("Logging in to Mergin...")
-
-    mc = dbsync.create_mergin_client()
-
-    if args.force_init:
-        dbsync.dbsync_clean(mc)
-
     if args.single_run:
-        if not args.skip_init:
-            try:
-                dbsync.dbsync_init(mc)
-            except dbsync.DbSyncError as e:
-                handle_error_and_exit(e)
-
         try:
+            logging.debug("Logging in to Mergin...")
+            mc = dbsync.create_mergin_client()
+
+            if args.force_init:
+                dbsync.dbsync_clean(mc)
+
+            if not args.skip_init:
+                dbsync.dbsync_init(mc)
+
             logging.debug("Trying to pull")
             dbsync.dbsync_pull(mc)
 
@@ -170,46 +172,102 @@ def main():
             handle_error_and_exit(e)
 
     else:
-        if not args.skip_init:
-            try:
+        run_daemon(args, sleep_time, max_retries, send_notifications)
+
+
+def retry_wait_time(sleep_time: int, failures: int) -> int:
+    """Seconds to wait before the next attempt after `failures` consecutive failed attempts.
+
+    Doubles with each failure up to MAX_RETRY_WAIT, but never less than sleep_time."""
+    wait_time = sleep_time * 2 ** (failures - 1)
+    return min(wait_time, max(sleep_time, MAX_RETRY_WAIT))
+
+
+def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool) -> None:
+    """Keep syncing until killed. Failures (including login and init) are retried within
+    this process with exponential backoff instead of exiting, so the daemon does not
+    log in again on every restart by the container / service manager.
+
+    Sync errors after a successful start are retried indefinitely. Startup failures (login, clean, init)
+    and unexpected errors make the daemon exit after `max_retries` consecutive failed retries (0 = never exit)."""
+    mc = None
+    cleaned = not args.force_init
+    initialized = args.skip_init
+    started = False
+    failures = 0
+    fatal_failures = 0
+    last_email_sent = None
+
+    while True:
+        print(datetime.datetime.now())
+
+        try:
+            if mc is None:
+                logging.debug("Logging in to Mergin...")
+                mc = dbsync.create_mergin_client()
+
+            if not cleaned:
+                dbsync.dbsync_clean(mc)
+                cleaned = True
+
+            if not initialized:
                 dbsync.dbsync_init(mc)
-            except dbsync.DbSyncError as e:
-                handle_error_and_exit(e)
+                initialized = True
 
-        last_email_sent = None
+            logging.debug("Trying to pull")
+            dbsync.dbsync_pull(mc)
 
-        while True:
-            print(datetime.datetime.now())
+            logging.debug("Trying to push")
+            dbsync.dbsync_push(mc)
+            started = True
 
-            try:
-                logging.debug("Trying to pull")
-                dbsync.dbsync_pull(mc)
+            # check mergin client token expiration
+            delta = mc._auth_session["expire"] - datetime.datetime.now(datetime.timezone.utc)
+            if delta.total_seconds() < 3600:
+                mc = dbsync.create_mergin_client()
 
-                logging.debug("Trying to push")
-                dbsync.dbsync_push(mc)
+            failures = 0
+            fatal_failures = 0
 
-                # check mergin client token expiration
-                delta = mc._auth_session["expire"] - datetime.datetime.now(datetime.timezone.utc)
-                if delta.total_seconds() < 3600:
-                    mc = dbsync.create_mergin_client()
+        except Exception as e:
+            failures += 1
+            if not started or not isinstance(e, dbsync.DbSyncError):
+                fatal_failures += 1
+            if isinstance(e, dbsync.DbSyncError):
+                error_msg = str(e)
+                logging.error(error_msg)
+            else:
+                error_msg = f"Unexpected error: {e!r}"
+                logging.exception(error_msg)
 
-            except dbsync.DbSyncError as e:
-                logging.error(str(e))
-                if send_notifications:
-                    if "minimal_email_interval" in config.notification:
-                        min_time_delta_hr = config.notification.minimal_email_interval
-                    else:
-                        min_time_delta_hr = 4
+            giving_up = max_retries and fatal_failures > max_retries
+            if giving_up:
+                error_msg = f"Giving up after {max_retries} retries, the daemon will exit: {error_msg}"
 
-                    if (
-                        last_email_sent is None
-                        or (datetime.datetime.now() - last_email_sent).total_seconds() > min_time_delta_hr * 3600
-                    ):
-                        send_email(str(e), config)
-                        last_email_sent = datetime.datetime.now()
+            if send_notifications:
+                if "minimal_email_interval" in config.notification:
+                    min_time_delta_hr = config.notification.minimal_email_interval
+                else:
+                    min_time_delta_hr = 4
 
+                if (
+                    giving_up
+                    or last_email_sent is None
+                    or (datetime.datetime.now() - last_email_sent).total_seconds() > min_time_delta_hr * 3600
+                ):
+                    send_email(error_msg, config)
+                    last_email_sent = datetime.datetime.now()
+
+            if giving_up:
+                handle_error_and_exit(error_msg)
+
+        if failures:
+            wait_time = retry_wait_time(sleep_time, failures)
+            logging.debug(f"Failed attempt #{failures}, going to sleep for {wait_time} seconds before retrying")
+        else:
+            wait_time = sleep_time
             logging.debug("Going to sleep")
-            time.sleep(sleep_time)
+        time.sleep(wait_time)
 
 
 if __name__ == "__main__":

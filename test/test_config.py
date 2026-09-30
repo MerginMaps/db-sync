@@ -389,3 +389,20 @@ def test_skip_and_include_tables_mutually_exclusive():
     config.update({"CONNECTIONS": [{**base, "skip_tables": ["a"], "include_tables": ["b"]}]})
     with pytest.raises(ConfigError, match="cannot both be set"):
         validate_config(config)
+
+
+def test_config_daemon_max_retries():
+    """`max_retries` in `daemon` section must be a non-negative integer"""
+    _reset_config()
+    config.update({"DAEMON__MAX_RETRIES": 5})
+    validate_config(config)
+
+    config.update({"DAEMON__MAX_RETRIES": 0})
+    validate_config(config)
+
+    for value in [-1, "abc", 1.5, True]:
+        config.update({"DAEMON__MAX_RETRIES": value})
+        with pytest.raises(ConfigError, match="`max_retries` in `daemon` must be a non-negative integer"):
+            validate_config(config)
+
+    config.unset("DAEMON__MAX_RETRIES", force=True)

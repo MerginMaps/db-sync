@@ -62,13 +62,29 @@ daemon:
   sleep_time: 10
 ```
 
+When running as a daemon, the tool does not exit immediately when login, initialization or synchronization fails. The failed step is retried
+with exponential backoff, starting at `sleep_time` and doubling after each consecutive failure up to 10 minutes (or `sleep_time`
+if it is longer). Once a sync succeeds, the regular `sleep_time` interval is used again.
+
+Synchronization errors after the daemon has successfully started (e.g. temporary network or server issues) are retried indefinitely.
+If the start of the daemon (login or initialization) keeps failing, or unexpected errors keep occurring, the daemon exits
+after `max_retries` consecutive failed retries (10 by default, which takes about 50 minutes with `sleep_time: 10`).
+Set `max_retries: 0` to never exit:
+
+```yaml
+daemon:
+  sleep_time: 10
+  # Number of consecutive failed retries of the daemon start or unexpected errors before the daemon exits (0 = never exit)
+  max_retries: 10
+```
+
 ## Useful command line options
 
 - `config_file_name.yaml` The file name with path of yaml config can be provided. By default the tool uses `config.yaml` file from the current directory.
 
 - `--force-init` forces reinitialization of the sync. Drops dbsync schemas from database and the sync file and inits them all from scratch. This should be used to fix issues with dbsync init.
 
-- `--single-run` instead of running the daemon indefinitely, performs just one single run. Such run consists of initialization, pull and push steps.
+- `--single-run` instead of running the daemon indefinitely, performs just one single run. Such run consists of initialization, pull and push steps. Unlike the daemon, it exits with a non-zero code on failure. Avoid running it in a tight loop (e.g. from cron every minute) - use the daemon instead.
 
 - `--skip-init` allows skipping the initialization of sync step. Should be only used if you know, what you are doing, otherwise issues are likely to occur.
 
