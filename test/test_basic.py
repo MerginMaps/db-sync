@@ -35,6 +35,7 @@ from dbsync import (
 )
 
 from .conftest import (
+    name_project_checkout_dir,
     WORKSPACE,
     TMP_DIR,
     DB_CONNINFO,
@@ -196,8 +197,7 @@ def test_init_from_gpkg(
             "base.gpkg",
         ),
         os.path.join(
-            config.working_dir,
-            project_name,
+            name_project_checkout_dir(project_name),
             config.connections[0].sync_file,
         ),
     )
@@ -214,11 +214,7 @@ def test_init_from_gpkg_with_incomplete_dir(
         TEST_DATA_DIR,
         "base.gpkg",
     )
-    init_project_dir = os.path.join(
-        TMP_DIR,
-        project_name + "_dbsync",
-        project_name,
-    )
+    init_project_dir = name_project_checkout_dir(project_name)
     init_sync_from_geopackage(
         mc,
         project_name,
@@ -555,11 +551,7 @@ def test_with_local_changes(
             "modified_all.gpkg",
         ]
     ]
-    dbsync_project_dir = os.path.join(
-        TMP_DIR,
-        project_name + "_dbsync",
-        project_name,
-    )  # project location within dbsync working dir
+    dbsync_project_dir = name_project_checkout_dir(project_name)  # project location within dbsync working dir
 
     init_sync_from_geopackage(
         mc,
@@ -919,8 +911,7 @@ def test_dbsync_clean_from_gpkg(
     # edit sync GPKG and push to server
     con = sqlite3.connect(
         os.path.join(
-            sync_project_dir,
-            project_name,
+            name_project_checkout_dir(project_name),
             "test_sync.gpkg",
         )
     )
@@ -930,26 +921,19 @@ def test_dbsync_clean_from_gpkg(
     cur.execute("INSERT INTO new_table (number) VALUES (99);")
     con.commit()
     con.close()
-    mc.push_project(
-        os.path.join(
-            sync_project_dir,
-            project_name,
-        )
-    )
+    mc.push_project(name_project_checkout_dir(project_name))
 
     # replace it locally back with previous version - so there is mismatch, on server there is a column, that does not exist locally
     os.remove(
         os.path.join(
-            sync_project_dir,
-            project_name,
+            name_project_checkout_dir(project_name),
             "test_sync.gpkg",
         )
     )
     shutil.copy(
         source_gpkg_path,
         os.path.join(
-            sync_project_dir,
-            project_name,
+            name_project_checkout_dir(project_name),
             "test_sync.gpkg",
         ),
     )
