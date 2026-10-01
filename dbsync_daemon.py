@@ -222,8 +222,7 @@ def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool
             started = True
 
             # check mergin client token expiration
-            delta = mc._auth_session["expire"] - datetime.datetime.now(datetime.timezone.utc)
-            if delta.total_seconds() < 3600:
+            if dbsync.auth_token_expires_soon(mc):
                 mc = dbsync.create_mergin_client()
 
             failures = 0

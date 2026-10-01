@@ -974,8 +974,8 @@ def test_dbsync_clean_from_gpkg(
 
     dbsync_clean(mc)
 
-    # after the dbsync_clean nothing exists
-    assert pathlib.Path(config.working_dir).exists() is False
+    # after the dbsync_clean nothing exists, except the stored auth token
+    assert [p.name for p in pathlib.Path(config.working_dir).iterdir()] == [".mergin_auth.json"]
     assert (
         _check_schema_exists(
             conn,
