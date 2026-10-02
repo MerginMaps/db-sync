@@ -1149,11 +1149,7 @@ def init(
                 local_version = _get_project_version(work_dir)
                 logging.debug(f"Working directory {work_dir} already exists, with project version {local_version}")
                 # Compare local and database project version
-                db_project_id_str = getattr(
-                    db_proj_info,
-                    "project_id",
-                    None,
-                )
+                db_project_id_str = db_proj_info.get("project_id", None)
                 db_project_id = uuid.UUID(db_project_id_str) if db_project_id_str else None
                 mp = _get_mergin_project(work_dir)
                 local_project_id = _get_project_id(mp)
