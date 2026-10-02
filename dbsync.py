@@ -538,7 +538,7 @@ def _set_db_project_comment(
     conn.commit()
 
 
-def _get_db_project_comment(conn, schema):
+def _get_db_project_comment(conn, schema) -> typing.Optional[typing.Dict]:
     """Get Mergin Maps project name and its current version in db schema"""
     cur = conn.cursor()
     schema = _add_quotes_to_schema_name(schema)
