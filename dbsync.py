@@ -1134,7 +1134,8 @@ def init(
                 f"to {work_dir}"
             )
             project_info = mc.project_info(conn_cfg.mergin_project)
-            if db_proj_info["project_id"] != project_info["id"]:
+            db_project_id = db_proj_info.get("project_id", None)
+            if db_project_id != project_info["id"]:
                 raise DbSyncError(
                     "Mergin Maps project ID doesn't match Mergin Maps project ID stored in the database. "
                     "Did you change configuration from one Mergin Maps project to another? "
