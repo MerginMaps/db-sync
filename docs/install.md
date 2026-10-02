@@ -18,9 +18,9 @@ Assuming you want to use `config.yaml` from the current directory:
 ```bash
 docker run -it -v ${PWD}:/config lutraconsulting/mergin-db-sync:latest /config/config.yaml
 ```
-
-If you are testing with a PostgreSQL instance on your localhost, add `--network host` option to the Docker command so that
-the container can reach the database on localhost.
+> [!NOTE]
+>If you are testing with a PostgreSQL instance on your localhost, add `--network host` option to the Docker command so that
+>the container can reach the database on localhost.
 
 The container can be used also on Windows, see [instructions on how to use with WSL](install_wsl.md), but generally it is recommended to use the executable linked above.
 

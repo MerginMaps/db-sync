@@ -9,6 +9,7 @@ import logging
 import os
 import pathlib
 import platform
+import pprint
 import sys
 import time
 
@@ -96,6 +97,11 @@ def main():
         action="store_true",
         help="Send test notification email using the `notification` settings. Should be used to validate settings.",
     )
+    parser.add_argument(
+        "--show-config",
+        action="store_true",
+        help="Show runtime config, useful when using env vars in config file.",
+    )
 
     args = parser.parse_args()
 
@@ -105,12 +111,16 @@ def main():
     else:
         setup_logger()
 
-    logging.debug(f"== starting mergin-db-sync daemon == version {__version__} ==")
-
     try:
         update_config_path(args.config_file)
     except IOError as e:
         handle_error_and_exit(e)
+
+    if args.show_config:
+        pprint.pprint(config.as_dict())
+        sys.exit(0)
+
+    logging.debug(f"== starting mergin-db-sync daemon == version {__version__} ==")
 
     sleep_time = config.as_int("daemon.sleep_time")
     try:
