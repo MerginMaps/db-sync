@@ -321,15 +321,6 @@ def _clean_workspace(mc: MerginClient, workspace: str) -> None:
         mc.delete_project_now(f"{workspace}/{project['name']}")
 
 
-@pytest.fixture(autouse=True, scope="session")
-def clean_workspace(mc: MerginClient):
-    """Delete all projects in the test workspace prior and after test session."""
-
-    _clean_workspace(mc, WORKSPACE)
-    yield
-    _clean_workspace(mc, WORKSPACE)
-
-
 def _remove_dir(dir_path: str) -> None:
     """Remove directory if it exists."""
 
@@ -338,9 +329,11 @@ def _remove_dir(dir_path: str) -> None:
 
 
 @pytest.fixture(autouse=True, scope="session")
-def clean_test_dir():
+def clean_dir_and_workspace(mc: MerginClient):
     """Remove and recreate temporary directory for test files. Remove it after test session."""
+    _clean_workspace(mc, WORKSPACE)
     _remove_dir(TMP_DIR)
     os.makedirs(TMP_DIR)
     yield
     _remove_dir(TMP_DIR)
+    _clean_workspace(mc, WORKSPACE)
