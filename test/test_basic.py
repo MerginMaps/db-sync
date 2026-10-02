@@ -1005,3 +1005,64 @@ def test_dbsync_clean_from_gpkg(
     dbsync_init(mc)
     dbsync_pull(mc)
     dbsync_push(mc)
+
+
+def test_init_with_include_tables(
+    mc: MerginClient,
+):
+    project_name = "test_init_include_tables"
+    source_gpkg_path = os.path.join(
+        TEST_DATA_DIR,
+        "base_2tables.gpkg",
+    )
+    project_dir = os.path.join(
+        TMP_DIR,
+        project_name + "_work",
+    )
+    db_schema_main = project_name + "_main"
+
+    init_sync_from_geopackage(
+        mc,
+        project_name,
+        source_gpkg_path,
+        include_tables=["points"],
+    )
+
+    # only points should exist in the main schema, lines should be absent
+    conn = psycopg2.connect(DB_CONNINFO)
+    cur = conn.cursor()
+    cur.execute(
+        sql.SQL("SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = '{}' AND tablename = 'lines');").format(
+            sql.Identifier(db_schema_main)
+        )
+    )
+    assert cur.fetchone()[0] == False
+
+    cur.execute(sql.SQL("SELECT count(*) from {}.points").format(sql.Identifier(db_schema_main)))
+    assert cur.fetchone()[0] == 0
+
+    # run init again, nothing should change
+    dbsync_init(mc)
+    cur.execute(
+        sql.SQL("SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = '{}' AND tablename = 'lines');").format(
+            sql.Identifier(db_schema_main)
+        )
+    )
+    assert cur.fetchone()[0] == False
+
+    # push a change that touches both tables, only points should be pulled
+    shutil.copy(
+        os.path.join(TEST_DATA_DIR, "modified_all.gpkg"),
+        os.path.join(project_dir, "test_sync.gpkg"),
+    )
+    mc.push_project(project_dir)
+
+    dbsync_pull(mc)
+    cur.execute(
+        sql.SQL("SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = '{}' AND tablename = 'lines');").format(
+            sql.Identifier(db_schema_main)
+        )
+    )
+    assert cur.fetchone()[0] == False
+    cur.execute(sql.SQL("SELECT count(*) from {}.points").format(sql.Identifier(db_schema_main)))
+    assert cur.fetchone()[0] == 4
