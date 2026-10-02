@@ -78,11 +78,15 @@ daemon:
 
 - `--test-notification-email` used to test send notification email (see below for details about sending emails in case of sync fails)
 
-## Excluding tables from sync
+## Selecting which tables are synced
 
-Sometimes in the database there are tables that should not be synchronised to Mergin Maps projects. It is possible to ignore
-these tables and not sync them. To do so add `skip_tables` setting to the corresponding `connections` entry in the config
-file:
+Sometimes in the database there are tables that should not be synchronised to Mergin Maps projects. There are two
+mutually exclusive ways to control which tables get synced. Use **only one** of them per connection - setting both
+`skip_tables` and `include_tables` for the same connection is a configuration error.
+
+### Excluding tables (`skip_tables`)
+
+Add `skip_tables` to the corresponding `connections` entry to ignore the listed tables and sync everything else:
 
 ```yaml
 connections:
@@ -91,6 +95,22 @@ connections:
      mergin_project: john/myproject
      sync_file: sync.gpkg
      skip_tables:
+      - table1
+      - table2
+```
+
+### Including only specific tables (`include_tables`)
+
+Alternatively, add `include_tables` to sync **only** the listed tables and ignore everything else. This is useful when
+a database contains many tables but only a few should be synced:
+
+```yaml
+connections:
+   - driver: postgres
+     # ...
+     mergin_project: john/myproject
+     sync_file: sync.gpkg
+     include_tables:
       - table1
       - table2
 ```
