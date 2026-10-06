@@ -3,7 +3,7 @@ import datetime
 import os
 
 import pytest
-from mergin import MerginClient
+from mergin import ClientError, MerginClient
 
 import dbsync
 import dbsync_daemon
@@ -66,16 +66,20 @@ def dbsync_mocks(mocker):
         pull=mocker.patch("dbsync.dbsync_pull"),
         push=mocker.patch("dbsync.dbsync_push"),
         send_email=mocker.patch("dbsync_daemon.send_email"),
+        token_store=mocker.patch("dbsync.AuthTokenStore"),
     )
 
 
 def test_retry_wait_time():
-    """Wait time doubles with each consecutive failure, starting at sleep time and capped at MAX_RETRY_WAIT (or sleep time if longer)"""
+    """Wait time doubles with each consecutive failure, starting at sleep time and capped at max wait
+    (MAX_RETRY_WAIT by default) or sleep time if longer"""
     assert [dbsync_daemon.retry_wait_time(10, f) for f in range(1, 9)] == [10, 20, 40, 80, 160, 320, 600, 600]
     # sleep time longer than the max retry wait is respected
     assert dbsync_daemon.retry_wait_time(3600, 5) == 3600
     # no overflow with many failures
     assert dbsync_daemon.retry_wait_time(10, 10**6) == dbsync_daemon.MAX_RETRY_WAIT
+    # longer limit for failed logins
+    assert [dbsync_daemon.retry_wait_time(10, f, 3600) for f in range(7, 11)] == [640, 1280, 2560, 3600]
 
 
 def test_daemon_startup_is_retried(run_daemon, dbsync_mocks):
@@ -115,7 +119,13 @@ def test_daemon_keeps_running_after_start(run_daemon, dbsync_mocks):
     [
         ("init", [dbsync.DbSyncError("init failed")] * 4, 3, [10, 20, 40], True),
         ("pull", [None] + [RuntimeError("boom")] * 3, 2, [10, 10, 20], True),
-        ("create_client", dbsync.DbSyncError("login failed"), 0, [10, 20, 40, 80, 160, 320] + [600] * 14, False),
+        (
+            "create_client",
+            dbsync.DbSyncError("login failed"),
+            0,
+            [10, 20, 40, 80, 160, 320, 640, 1280, 2560, 3600],
+            False,
+        ),
     ],
     ids=["startup-failures", "unexpected-errors", "never-exit"],
 )
@@ -141,6 +151,35 @@ def test_daemon_gives_up_after_max_retries(
         dbsync_mocks.send_email.assert_called_once()
 
 
+def test_daemon_logs_in_again_when_token_rejected(run_daemon, dbsync_mocks):
+    """When the server rejects the auth token during sync, stored token is removed and new login is done
+    on the next attempt. Other failures do not cause new login."""
+    dbsync_mocks.pull.side_effect = [None, dbsync.DbSyncError("server unavailable"), dbsync.DbSyncError("401"), None]
+    dbsync_mocks.mc.user_info.side_effect = [None, ClientError("Unauthorized", http_error=401)]
+
+    sleeps, exited = run_daemon(iterations=4)
+
+    assert not exited
+    assert sleeps == [10, 10, 20, 10]
+    assert dbsync_mocks.create_client.call_count == 2
+    dbsync_mocks.token_store.from_config.return_value.remove.assert_called_once()
+
+
+def test_daemon_credentials_rejected_after_start(run_daemon, dbsync_mocks):
+    """When the token is rejected after a successful start and the new login fails too (e.g. user was deactivated),
+    the daemon keeps running but retries the login with longer wait times (up to MAX_LOGIN_RETRY_WAIT)"""
+    dbsync_mocks.create_client.side_effect = [dbsync_mocks.mc] + [dbsync.DbSyncError("login failed")] * 20
+    dbsync_mocks.pull.side_effect = [None, dbsync.DbSyncError("401")]
+    dbsync_mocks.mc.user_info.side_effect = ClientError("Unauthorized", http_error=401)
+
+    sleeps, exited = run_daemon(iterations=13, max_retries=2)
+
+    assert not exited
+    assert sleeps == [10, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 3600, 3600, 3600]
+    # first login + login retried after each sleep since the token was rejected
+    assert dbsync_mocks.create_client.call_count == 12
+
+
 def test_daemon_recovers_from_init_failure(mc: MerginClient, run_daemon, mocker):
     """Integration test with real server and database: init fails on database connection for two attempts,
     the daemon retries without logging in again and continues syncing once the database connection is fixed."""
@@ -161,3 +200,25 @@ def test_daemon_recovers_from_init_failure(mc: MerginClient, run_daemon, mocker)
     assert sleeps == [10, 20, 10, 10]
     assert login.call_count == 1
     assert pull.call_count == 2
+
+
+def test_daemon_recovers_from_rejected_token(mc: MerginClient, run_daemon, mocker):
+    """Integration test with real server and database: the server starts rejecting the auth token
+    of the running daemon, the daemon logs in again and continues syncing."""
+    init_sync_from_geopackage(mc, "test_daemon_token", os.path.join(TEST_DATA_DIR, "base.gpkg"))
+    login = mocker.spy(MerginClient, "login")
+    create_client = mocker.spy(dbsync, "create_mergin_client")
+    pull = mocker.spy(dbsync, "dbsync_pull")
+
+    def invalidate_token(sleep_count):
+        if sleep_count == 1:
+            daemon_mc = create_client.spy_return
+            daemon_mc._auth_session["token"] = daemon_mc._auth_session["token"][:-4] + "abcd"
+
+    sleeps, exited = run_daemon(iterations=3, on_sleep=invalidate_token)
+
+    assert not exited
+    assert sleeps == [10, 10, 10]
+    assert login.call_count == 2
+    assert pull.call_count == 3
+    assert pull.spy_exception is None

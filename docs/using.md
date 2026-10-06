@@ -64,11 +64,13 @@ daemon:
 
 When running as a daemon, the tool does not exit immediately when login, initialization or synchronization fails. The failed step is retried
 with exponential backoff, starting at `sleep_time` and doubling after each consecutive failure up to 10 minutes (or `sleep_time`
-if it is longer). Once a sync succeeds, the regular `sleep_time` interval is used again.
+if it is longer). Failed logins are retried less often, up to 1 hour, as rejected credentials can not be fixed by retrying.
+Once a sync succeeds, the regular `sleep_time` interval is used again.
 
 Synchronization errors after the daemon has successfully started (e.g. temporary network or server issues) are retried indefinitely.
 If the start of the daemon (login or initialization) keeps failing, or unexpected errors keep occurring, the daemon exits
-after `max_retries` consecutive failed retries (10 by default, which takes about 50 minutes with `sleep_time: 10`).
+after `max_retries` consecutive failed retries (10 by default, which takes about 50 minutes with `sleep_time: 10`,
+or longer if the login is failing).
 Set `max_retries: 0` to never exit:
 
 ```yaml

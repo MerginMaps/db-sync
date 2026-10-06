@@ -642,6 +642,18 @@ def auth_token_expires_soon(mc: MerginClient) -> bool:
     return delta.total_seconds() < TOKEN_MIN_VALIDITY
 
 
+def auth_token_rejected(mc: MerginClient) -> bool:
+    """Checks whether the server rejects auth token of the client although it has not expired yet.
+    Other errors (e.g. server unavailable) are ignored."""
+    try:
+        mc.user_info()
+    except ClientError as e:
+        return e.http_error == 401
+    except Exception:
+        pass
+    return False
+
+
 def _create_mergin_client_from_stored_token() -> typing.Optional[MerginClient]:
     """Creates MerginClient using stored auth token, returns None if there is no valid stored token"""
     token_store = AuthTokenStore.from_config()
@@ -665,15 +677,10 @@ def _create_mergin_client_from_stored_token() -> typing.Optional[MerginClient]:
     if auth_token_expires_soon(mc):
         return None
 
-    # make sure the server still accepts the token (e.g. user may have been deactivated in the meantime)
-    try:
-        mc.user_info()
-    except ClientError as e:
-        if e.http_error == 401:
-            logging.debug("Stored Mergin Maps auth token was rejected by the server")
-            token_store.remove()
-            return None
-        raise
+    if auth_token_rejected(mc):
+        logging.debug("Stored Mergin Maps auth token was rejected by the server")
+        token_store.remove()
+        return None
 
     logging.debug("Using stored Mergin Maps auth token")
     return mc

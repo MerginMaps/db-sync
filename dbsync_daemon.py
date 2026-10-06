@@ -21,6 +21,9 @@ from version import __version__
 
 # upper limit (in seconds) of the wait time between retries after repeated failures
 MAX_RETRY_WAIT = 600
+# upper limit (in seconds) of the wait time for failed logins - credentials rejected
+# by the server can not be fixed by retrying and too frequent failed logins may lock the account
+MAX_LOGIN_RETRY_WAIT = 3600
 # default number of consecutive failed retries of startup (login / init) or unexpected errors before the daemon exits
 DEFAULT_MAX_RETRIES = 10
 
@@ -175,12 +178,12 @@ def main():
         run_daemon(args, sleep_time, max_retries, send_notifications)
 
 
-def retry_wait_time(sleep_time: int, failures: int) -> int:
+def retry_wait_time(sleep_time: int, failures: int, max_wait: int = MAX_RETRY_WAIT) -> int:
     """Seconds to wait before the next attempt after `failures` consecutive failed attempts.
 
-    Doubles with each failure up to MAX_RETRY_WAIT, but never less than sleep_time."""
+    Doubles with each failure up to max_wait, but never less than sleep_time."""
     wait_time = sleep_time * 2 ** (failures - 1)
-    return min(wait_time, max(sleep_time, MAX_RETRY_WAIT))
+    return min(wait_time, max(sleep_time, max_wait))
 
 
 def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool) -> None:
@@ -200,6 +203,7 @@ def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool
 
     while True:
         print(datetime.datetime.now())
+        login_failed = False
 
         try:
             if mc is None:
@@ -230,6 +234,8 @@ def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool
 
         except Exception as e:
             failures += 1
+            # client is created by login as the first step, so no client means the login has failed
+            login_failed = mc is None
             if not started or not isinstance(e, dbsync.DbSyncError):
                 fatal_failures += 1
             if isinstance(e, dbsync.DbSyncError):
@@ -238,6 +244,12 @@ def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool
             else:
                 error_msg = f"Unexpected error: {e!r}"
                 logging.exception(error_msg)
+
+            # server may reject the token before it expires, log in again on the next attempt in such case
+            if mc is not None and dbsync.auth_token_rejected(mc):
+                logging.warning("Mergin Maps auth token was rejected by the server, going to log in again")
+                dbsync.AuthTokenStore.from_config().remove()
+                mc = None
 
             giving_up = max_retries and fatal_failures > max_retries
             if giving_up:
@@ -261,7 +273,7 @@ def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool
                 handle_error_and_exit(error_msg)
 
         if failures:
-            wait_time = retry_wait_time(sleep_time, failures)
+            wait_time = retry_wait_time(sleep_time, failures, MAX_LOGIN_RETRY_WAIT if login_failed else MAX_RETRY_WAIT)
             logging.debug(f"Failed attempt #{failures}, going to sleep for {wait_time} seconds before retrying")
         else:
             wait_time = sleep_time

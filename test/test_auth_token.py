@@ -139,14 +139,14 @@ def test_login_works_when_token_can_not_be_stored(token_config, mergin_client, m
 
 
 def test_stored_token_server_error(token_config, mergin_client):
-    """Server error other than 401 when validating stored token is reported as DB sync error without new login,
-    the stored token is kept for the next attempt"""
+    """Server error other than 401 when validating stored token does not cause new login,
+    the stored token is used (and the sync itself fails and is retried later if the server is really unavailable)"""
     _store_token(token_config)
     mergin_client.user_info.side_effect = ClientError("Service unavailable", http_error=503)
 
-    with pytest.raises(dbsync.DbSyncError, match="Service unavailable"):
-        dbsync.create_mergin_client()
+    mc = dbsync.create_mergin_client()
 
+    assert mc._auth_session["token"] == STORED_TOKEN
     assert _logins(mergin_client) == 0
     assert json.loads(token_config.read_text())["token"] == STORED_TOKEN
 
