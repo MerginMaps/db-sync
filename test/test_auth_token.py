@@ -181,7 +181,9 @@ def test_stored_token_with_server(tmp_path, mocker):
 
     mc = dbsync.create_mergin_client()
     assert login.call_count == 1
-    assert mc.user_info()["email"] == config.mergin.username
+    # stored token is accepted by the server (configured login can be either username or email)
+    user_info = mc.user_info()
+    assert config.mergin.username in (user_info["username"], user_info["email"])
 
     stored = json.loads(token_path.read_text())
     token_path.write_text(json.dumps({**stored, "token": stored["token"][:-4] + "abcd"}))
