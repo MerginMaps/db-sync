@@ -7,6 +7,7 @@ License: MIT
 """
 
 import getpass
+import glob
 import json
 import os
 import shutil
@@ -554,6 +555,11 @@ def _get_db_project_comment(conn, schema):
     return comment
 
 
+def _download_project(mc, conn_cfg, work_dir, version=None):
+    """Download only the sync file of the Mergin Maps project (sparse checkout)"""
+    mc.download_project(conn_cfg.mergin_project, work_dir, version, include=[glob.escape(conn_cfg.sync_file)])
+
+
 def _redownload_project(conn_cfg, mc, work_dir, db_proj_info):
     logging.debug(f"Removing local working directory {work_dir}")
     shutil.rmtree(work_dir)
@@ -562,11 +568,7 @@ def _redownload_project(conn_cfg, mc, work_dir, db_proj_info):
         f"to {work_dir}"
     )
     try:
-        mc.download_project(
-            conn_cfg.mergin_project,
-            work_dir,
-            db_proj_info["version"],
-        )
+        _download_project(mc, conn_cfg, work_dir, db_proj_info["version"])
     except ClientError as e:
         raise DbSyncError("Mergin Maps client error: " + str(e))
 
@@ -887,7 +889,11 @@ def status(conn_cfg, mc):
         server_info,
     )
 
-    status_push = mp.get_push_changes()
+    try:
+        status_pull, status_push, _ = mc.project_status(work_dir)
+    except ClientError as e:
+        raise DbSyncError("Mergin Maps client error: " + str(e))
+
     if status_push["added"] or status_push["updated"] or status_push["removed"]:
         raise DbSyncError("Pending changes in the local directory - that should never happen! " + str(status_push))
 
@@ -896,7 +902,6 @@ def status(conn_cfg, mc):
     logging.debug("")
 
     logging.debug("Server is at version " + server_info["version"])
-    status_pull = mp.get_pull_changes(server_info["files"], server_info["version"])
     if status_pull["added"] or status_pull["updated"] or status_pull["removed"]:
         logging.debug("There are pending changes on server:")
         _print_mergin_changes(status_pull)
@@ -1126,7 +1131,7 @@ def init(
                 f"Downloading version {db_proj_info['version']} of Mergin Maps project {conn_cfg.mergin_project} "
                 f"to {work_dir}"
             )
-            mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
+            _download_project(mc, conn_cfg, work_dir, db_proj_info["version"])
         else:
             # Get project ID from DB if available
             try:
@@ -1156,7 +1161,7 @@ def init(
     else:
         if not os.path.exists(work_dir):
             logging.debug("Downloading latest Mergin Maps project " + conn_cfg.mergin_project + " to " + work_dir)
-            mc.download_project(conn_cfg.mergin_project, work_dir)
+            _download_project(mc, conn_cfg, work_dir)
         else:
             local_version = _get_project_version(work_dir)
             logging.debug(f"Working directory {work_dir} already exists, with project version {local_version}")
@@ -1475,10 +1480,7 @@ def clean(conn_cfg, mc):
         try:
             # to remove sync file, download project to created directory, drop file and push changes back
             file = temp_folder / conn_cfg.sync_file
-            mc.download_project(
-                conn_cfg.mergin_project,
-                str(temp_folder),
-            )
+            _download_project(mc, conn_cfg, str(temp_folder))
             if file.exists():
                 file.unlink()
             mc.push_project(str(temp_folder))

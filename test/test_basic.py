@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 import pytest
@@ -44,6 +45,7 @@ from .conftest import (
     USER_PWD,
     SERVER_URL,
     TEST_DATA_DIR,
+    complete_project_name,
     init_sync_from_geopackage,
 )
 
@@ -558,8 +560,13 @@ def test_with_local_changes(
         project_name,
         source_gpkg_path,
         [],
+        None,
         *extra_files,
     )
+
+    # sparse checkout - files other than the sync file are not downloaded
+    assert not os.path.exists(os.path.join(dbsync_project_dir, "note_1.txt"))
+    assert not os.path.exists(os.path.join(dbsync_project_dir, "modified_all.gpkg"))
 
     # update GPKG
     shutil.copy(
@@ -572,58 +579,24 @@ def test_with_local_changes(
             "test_sync.gpkg",
         ),
     )
-    # update non-GPGK file
-    shutil.copy(
-        os.path.join(
-            TEST_DATA_DIR,
-            "note_2.txt",
-        ),
-        os.path.join(
-            dbsync_project_dir,
-            "note_1.txt",
-        ),
-    )
-    # add GPKG file
-    shutil.copy(
-        os.path.join(
-            TEST_DATA_DIR,
-            "inserted_1_A.gpkg",
-        ),
-        os.path.join(
-            dbsync_project_dir,
-            "inserted_1_A.gpkg",
-        ),
-    )
-    # add non-GPGK file
-    shutil.copy(
-        os.path.join(
-            TEST_DATA_DIR,
-            "note_2.txt",
-        ),
-        os.path.join(
-            dbsync_project_dir,
-            "note_2.txt",
-        ),
-    )
-    # remove GPKG file
-    os.remove(
-        os.path.join(
-            dbsync_project_dir,
-            "modified_all.gpkg",
+    # add files outside of the sparse checkout - these are ignored
+    for f in ["note_1.txt", "note_2.txt", "inserted_1_A.gpkg"]:
+        shutil.copy(
+            os.path.join(
+                TEST_DATA_DIR,
+                "note_2.txt" if f.endswith(".txt") else f,
+            ),
+            os.path.join(
+                dbsync_project_dir,
+                f,
+            ),
         )
-    )
-    # remove non-GPKG file
-    os.remove(
-        os.path.join(
-            dbsync_project_dir,
-            "note_3.txt",
-        )
-    )
     # Check local changes in the sync project dir
     mp = _get_mergin_project(dbsync_project_dir)
     local_changes = mp.get_push_changes()
-    del local_changes["renamed"]  # Not supported anymore
-    assert all(local_changes.values()) is True
+    assert not local_changes["added"]
+    assert not local_changes["removed"]
+    assert [f["path"] for f in local_changes["updated"]] == ["test_sync.gpkg"]
     dbsync_pull(mc)
     local_changes = mp.get_push_changes()
     assert any(local_changes.values()) is False
@@ -1050,3 +1023,50 @@ def test_init_with_include_tables(
     assert cur.fetchone()[0] == False
     cur.execute(sql.SQL("SELECT count(*) from {}.points").format(sql.Identifier(db_schema_main)))
     assert cur.fetchone()[0] == 4
+
+
+def test_sync_ignores_other_project_files(mc: MerginClient, caplog):
+    """Changes of other files in the project (outside of the sparse checkout) do not affect sync"""
+    project_name = "test_sync_ignores_other_files"
+    db_schema_main = project_name + "_main"
+    source_gpkg_path = os.path.join(TEST_DATA_DIR, "base.gpkg")
+    project_dir = os.path.join(TMP_DIR, project_name + "_work")
+    dbsync_project_dir = name_project_checkout_dir(project_name)
+
+    init_sync_from_geopackage(
+        mc,
+        project_name,
+        source_gpkg_path,
+        [],
+        None,
+        os.path.join(TEST_DATA_DIR, "note_1.txt"),
+    )
+
+    # add another file to the project on the server
+    shutil.copy(os.path.join(TEST_DATA_DIR, "note_2.txt"), os.path.join(project_dir, "note_2.txt"))
+    mc.push_project(project_dir)
+
+    # status does not report it as pending server change
+    caplog.set_level(logging.DEBUG)
+    dbsync_status(mc)
+    assert "No pending changes on server." in caplog.text
+
+    # pull moves to the new version without downloading the file
+    dbsync_pull(mc)
+    assert _get_mergin_project(dbsync_project_dir).version() == "v2"
+    assert not os.path.exists(os.path.join(dbsync_project_dir, "note_2.txt"))
+
+    # push from DB keeps the other files on the server
+    conn = psycopg2.connect(DB_CONNINFO)
+    cur = conn.cursor()
+    cur.execute(
+        sql.SQL("INSERT INTO {}.simple (name, rating) VALUES ('insert in postgres', 123)").format(
+            sql.Identifier(db_schema_main)
+        )
+    )
+    cur.execute("COMMIT")
+    dbsync_push(mc)
+
+    server_info = mc.project_info(complete_project_name(project_name))
+    assert server_info["version"] == "v3"
+    assert sorted(f["path"] for f in server_info["files"]) == ["note_1.txt", "note_2.txt", "test_sync.gpkg"]

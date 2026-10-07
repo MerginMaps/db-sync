@@ -59,6 +59,7 @@ connections:
      mergin_project: john/myproject
      # Path to the GeoPackage within the Mergin Maps project above
      # (it must exist if doing init from geopackage, it must not exist if doing init from database)
+     # Only this file is downloaded from the Mergin Maps project, other project files are ignored
      sync_file: data.gpkg
 
 daemon:
