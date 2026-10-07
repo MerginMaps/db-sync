@@ -670,6 +670,22 @@ def revert_local_changes(
     return leftovers
 
 
+def _get_work_dir(conn_cfg):
+    """Return the local working directory (project checkout) for a connection.
+
+    Each connection gets its own checkout of the Mergin Maps project in
+    ``<working_dir>/<project name>-<modified schema>``; the modified schema is
+    unique per connection. Previously all connections to the same project shared
+    ``<working_dir>/<project name>``: the first connection to see a new server
+    version pulled it - updating *every* GeoPackage in the checkout - but only
+    computed and applied the changeset for its own sync file. The remaining
+    connections then saw local_version == server_version and did nothing, so
+    their changes never reached the database and no error was logged (#163).
+    """
+    project_name = conn_cfg.mergin_project.split("/")[1]
+    return os.path.join(config.working_dir, f"{project_name}-{conn_cfg.modified}")
+
+
 def pull(conn_cfg, mc):
     """Downloads any changes from Mergin Maps and applies them to the database"""
 
@@ -678,10 +694,7 @@ def pull(conn_cfg, mc):
     include_tables = get_include_tables(conn_cfg)
 
     project_name = conn_cfg.mergin_project.split("/")[1]
-    work_dir = os.path.join(
-        config.working_dir,
-        project_name,
-    )
+    work_dir = _get_work_dir(conn_cfg)
     gpkg_full_path = os.path.join(
         work_dir,
         conn_cfg.sync_file,
@@ -839,10 +852,7 @@ def status(conn_cfg, mc):
 
     project_name = conn_cfg.mergin_project.split("/")[1]
 
-    work_dir = os.path.join(
-        config.working_dir,
-        project_name,
-    )
+    work_dir = _get_work_dir(conn_cfg)
     gpkg_full_path = os.path.join(
         work_dir,
         conn_cfg.sync_file,
@@ -951,10 +961,7 @@ def push(conn_cfg, mc):
     if os.path.exists(tmp_changeset_file):
         os.remove(tmp_changeset_file)
 
-    work_dir = os.path.join(
-        config.working_dir,
-        project_name,
-    )
+    work_dir = _get_work_dir(conn_cfg)
     gpkg_full_path = os.path.join(
         work_dir,
         conn_cfg.sync_file,
@@ -1057,8 +1064,6 @@ def init(
     ignored_tables = get_ignored_tables(conn_cfg)
     include_tables = get_include_tables(conn_cfg)
 
-    project_name = conn_cfg.mergin_project.split("/")[1]
-
     # let's start with various environment checks to make sure
     # the environment is set up correctly before doing any work
     logging.debug("Connecting to the database...")
@@ -1081,10 +1086,7 @@ def init(
         conn_cfg.modified,
     )
 
-    work_dir = os.path.join(
-        config.working_dir,
-        project_name,
-    )
+    work_dir = _get_work_dir(conn_cfg)
     gpkg_full_path = os.path.join(
         work_dir,
         conn_cfg.sync_file,
