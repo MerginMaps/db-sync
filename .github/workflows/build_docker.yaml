@@ -25,6 +25,12 @@ jobs:
           echo "VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_ENV
           echo "VERSION=$(git describe --tags --abbrev=0)" >> $GITHUB_OUTPUT
       
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
@@ -32,4 +38,4 @@ jobs:
           context: .
           push: true
           tags: "lutraconsulting/mergin-db-sync:${{steps.version.outputs.VERSION}},lutraconsulting/mergin-db-sync:latest"
-      
+          platforms: linux/amd64,linux/arm64
