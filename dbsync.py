@@ -1133,15 +1133,18 @@ def init(
                 f"Downloading version {db_proj_info['version']} of Mergin Maps project {conn_cfg.mergin_project} "
                 f"to {work_dir}"
             )
-            project_info = mc.project_info(conn_cfg.mergin_project)
-            db_project_id = db_proj_info.get("project_id", None)
-            if db_project_id != project_info["id"]:
-                raise DbSyncError(
-                    "Mergin Maps project ID doesn't match Mergin Maps project ID stored in the database. "
-                    "Did you change configuration from one Mergin Maps project to another? "
-                    f"You either need to remove schema `{conn_cfg.base}` from Database or use `--force-init` option. "
-                    f"{FORCE_INIT_MESSAGE}"
-                )
+            # project ID is missing in comments created by older versions of db-sync - skip the check in that case,
+            # it will be stored in the comment by next pull/push
+            db_project_id_str = db_proj_info.get("project_id", None)
+            if db_project_id_str:
+                project_info = mc.project_info(conn_cfg.mergin_project)
+                if uuid.UUID(db_project_id_str) != uuid.UUID(project_info["id"]):
+                    raise DbSyncError(
+                        "Mergin Maps project ID doesn't match Mergin Maps project ID stored in the database. "
+                        "Did you change configuration from one Mergin Maps project to another? "
+                        f"You either need to remove schema `{conn_cfg.base}` from Database or use `--force-init` option. "
+                        f"{FORCE_INIT_MESSAGE}"
+                    )
             mc.download_project(conn_cfg.mergin_project, work_dir, db_proj_info["version"])
         else:
             # Get project ID from DB if available
