@@ -19,6 +19,7 @@ import uuid
 import re
 import pathlib
 import logging
+import typing
 
 import psycopg2
 import psycopg2.extensions
@@ -496,8 +497,10 @@ def _get_project_version(work_path) -> str:
     return mp.version()
 
 
-def _get_project_id(mp: MerginProject):
+def _get_project_id(mp: typing.Union[MerginProject, str]):
     """Returns the project ID"""
+    if isinstance(mp, str):
+        mp = _get_mergin_project(mp)
     try:
         project_id = uuid.UUID(mp.project_id())
     except (
@@ -524,7 +527,7 @@ def _set_db_project_comment(
         "version": version,
     }
     if project_id:
-        comment["project_id"] = project_id
+        comment["project_id"] = str(project_id)
     if error:
         comment["error"] = error
     cur = conn.cursor()
@@ -536,7 +539,7 @@ def _set_db_project_comment(
     conn.commit()
 
 
-def _get_db_project_comment(conn, schema):
+def _get_db_project_comment(conn, schema) -> typing.Optional[typing.Dict]:
     """Get Mergin Maps project name and its current version in db schema"""
     cur = conn.cursor()
     schema = _add_quotes_to_schema_name(schema)
@@ -836,12 +839,12 @@ def pull(conn_cfg, mc):
 
     os.remove(gpkg_basefile_old)
     conn = psycopg2.connect(conn_cfg.conn_info)
-    version = _get_project_version(work_dir)
     _set_db_project_comment(
         conn,
         conn_cfg.base,
         conn_cfg.mergin_project,
-        version,
+        version=_get_project_version(work_dir),
+        project_id=_get_project_id(work_dir),
     )
 
 
@@ -1055,7 +1058,13 @@ def push(conn_cfg, mc):
     _geodiff_apply_changeset(
         conn_cfg.driver, conn_cfg.conn_info, conn_cfg.base, tmp_changeset_file, ignored_tables, include_tables
     )
-    _set_db_project_comment(conn, conn_cfg.base, conn_cfg.mergin_project, version)
+    _set_db_project_comment(
+        conn,
+        conn_cfg.base,
+        conn_cfg.mergin_project,
+        version,
+        project_id=_get_project_id(work_dir),
+    )
 
 
 def init(
@@ -1131,6 +1140,18 @@ def init(
                 f"Downloading version {db_proj_info['version']} of Mergin Maps project {conn_cfg.mergin_project} "
                 f"to {work_dir}"
             )
+            # project ID is missing in comments created by older versions of db-sync - skip the check in that case,
+            # it will be stored in the comment by next pull/push
+            db_project_id_str = db_proj_info.get("project_id", None)
+            if db_project_id_str:
+                project_info = mc.project_info(conn_cfg.mergin_project)
+                if uuid.UUID(db_project_id_str) != uuid.UUID(project_info["id"]):
+                    raise DbSyncError(
+                        "Mergin Maps project ID doesn't match Mergin Maps project ID stored in the database. "
+                        "Did you change configuration from one Mergin Maps project to another? "
+                        f"You either need to remove schema `{conn_cfg.base}` from Database or use `--force-init` option. "
+                        f"{FORCE_INIT_MESSAGE}"
+                    )
             _download_project(mc, conn_cfg, work_dir, db_proj_info["version"])
         else:
             # Get project ID from DB if available
@@ -1138,11 +1159,7 @@ def init(
                 local_version = _get_project_version(work_dir)
                 logging.debug(f"Working directory {work_dir} already exists, with project version {local_version}")
                 # Compare local and database project version
-                db_project_id_str = getattr(
-                    db_proj_info,
-                    "project_id",
-                    None,
-                )
+                db_project_id_str = db_proj_info.get("project_id", None)
                 db_project_id = uuid.UUID(db_project_id_str) if db_project_id_str else None
                 mp = _get_mergin_project(work_dir)
                 local_project_id = _get_project_id(mp)
@@ -1305,6 +1322,7 @@ def init(
             conn_cfg.base,
             conn_cfg.mergin_project,
             local_version,
+            project_id=_get_project_id(work_dir),
         )
     else:
         if not modified_schema_exists:
@@ -1424,12 +1442,12 @@ def init(
         mc.push_project(work_dir)
 
         # mark project version into db schema
-        version = _get_project_version(work_dir)
         _set_db_project_comment(
             conn,
             conn_cfg.base,
             conn_cfg.mergin_project,
-            version,
+            version=_get_project_version(work_dir),
+            project_id=_get_project_id(work_dir),
         )
 
 
