@@ -1,8 +1,8 @@
 import argparse
 import datetime
 import os
-
 import pytest
+
 from mergin import ClientError, MerginClient
 
 import dbsync
@@ -27,7 +27,7 @@ def run_daemon(mocker):
         force_init=False,
         skip_init=False,
         sleep_time=10,
-        max_retries=10,
+        max_failed_retries=10,
         send_notifications=False,
         on_sleep=None,
     ):
@@ -43,7 +43,7 @@ def run_daemon(mocker):
         mocker.patch("dbsync_daemon.time.sleep", side_effect=fake_sleep)
         args = argparse.Namespace(force_init=force_init, skip_init=skip_init)
         try:
-            dbsync_daemon.run_daemon(args, sleep_time, max_retries, send_notifications)
+            dbsync_daemon.run_daemon(args, sleep_time, max_failed_retries, send_notifications)
         except StopDaemon:
             return sleeps, False
         except SystemExit:
@@ -105,7 +105,7 @@ def test_daemon_keeps_running_after_start(run_daemon, dbsync_mocks):
         [None] + [dbsync.DbSyncError("server unavailable")] * 8 + [RuntimeError("boom")] + [None]
     )
 
-    sleeps, exited = run_daemon(iterations=11, max_retries=2)
+    sleeps, exited = run_daemon(iterations=11, max_failed_retries=2)
 
     assert not exited
     assert sleeps == [10, 10, 20, 40, 80, 160, 320, 600, 600, 600, 10]
@@ -115,7 +115,7 @@ def test_daemon_keeps_running_after_start(run_daemon, dbsync_mocks):
 
 
 @pytest.mark.parametrize(
-    "failing_step, errors, max_retries, expected_sleeps, expected_exit",
+    "failing_step, errors, max_failed_retries, expected_sleeps, expected_exit",
     [
         ("init", [dbsync.DbSyncError("init failed")] * 4, 3, [10, 20, 40], True),
         ("pull", [None] + [RuntimeError("boom")] * 3, 2, [10, 10, 20], True),
@@ -129,24 +129,24 @@ def test_daemon_keeps_running_after_start(run_daemon, dbsync_mocks):
     ],
     ids=["startup-failures", "unexpected-errors", "never-exit"],
 )
-def test_daemon_gives_up_after_max_retries(
-    run_daemon, dbsync_mocks, failing_step, errors, max_retries, expected_sleeps, expected_exit
+def test_daemon_gives_up_after_max_failed_retries(
+    run_daemon, dbsync_mocks, failing_step, errors, max_failed_retries, expected_sleeps, expected_exit
 ):
-    """Daemon exits after `max_retries` consecutive failed retries of the start or of unexpected errors
-    (never with max_retries 0). Notification email is always sent when giving up, regardless of the minimal
+    """Daemon exits after `max_failed_retries` consecutive failed retries of the start or of unexpected errors
+    (never with max_failed_retries 0). Notification email is always sent when giving up, regardless of the minimal
     email interval."""
     getattr(dbsync_mocks, failing_step).side_effect = errors
 
     # daemon that should not exit is stopped after the expected number of sleeps
     iterations = 100 if expected_exit else len(expected_sleeps)
-    sleeps, exited = run_daemon(iterations=iterations, max_retries=max_retries, send_notifications=True)
+    sleeps, exited = run_daemon(iterations=iterations, max_failed_retries=max_failed_retries, send_notifications=True)
 
     assert exited == expected_exit
     assert sleeps == expected_sleeps
     if expected_exit:
         # first failure and giving up, the ones in between are suppressed by the minimal email interval
         assert dbsync_mocks.send_email.call_count == 2
-        assert dbsync_mocks.send_email.call_args.args[0].startswith(f"Giving up after {max_retries} retries")
+        assert dbsync_mocks.send_email.call_args.args[0].startswith(f"Giving up after {max_failed_retries} retries")
     else:
         dbsync_mocks.send_email.assert_called_once()
 
@@ -172,7 +172,7 @@ def test_daemon_credentials_rejected_after_start(run_daemon, dbsync_mocks):
     dbsync_mocks.pull.side_effect = [None, dbsync.DbSyncError("401")]
     dbsync_mocks.mc.user_info.side_effect = ClientError("Unauthorized", http_error=401)
 
-    sleeps, exited = run_daemon(iterations=13, max_retries=2)
+    sleeps, exited = run_daemon(iterations=13, max_failed_retries=2)
 
     assert not exited
     assert sleeps == [10, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 3600, 3600, 3600]
@@ -194,7 +194,7 @@ def test_daemon_recovers_from_init_failure(mc: MerginClient, run_daemon, mocker)
     login = mocker.spy(MerginClient, "login")
     pull = mocker.spy(dbsync, "dbsync_pull")
 
-    sleeps, exited = run_daemon(iterations=4, max_retries=5, on_sleep=fix_db_connection)
+    sleeps, exited = run_daemon(iterations=4, max_failed_retries=5, on_sleep=fix_db_connection)
 
     assert not exited
     assert sleeps == [10, 20, 10, 10]

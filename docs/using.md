@@ -73,15 +73,15 @@ Once a sync succeeds, the regular `sleep_time` interval is used again.
 
 Synchronization errors after the daemon has successfully started (e.g. temporary network or server issues) are retried indefinitely.
 If the start of the daemon (login or initialization) keeps failing, or unexpected errors keep occurring, the daemon exits
-after `max_retries` consecutive failed retries (10 by default, which takes about 50 minutes with `sleep_time: 10`,
+after `max_failed_retries` consecutive failed retries (10 by default, which takes about 50 minutes with `sleep_time: 10`,
 or longer if the login is failing).
-Set `max_retries: 0` to never exit:
+Set `max_failed_retries: 0` to never exit:
 
 ```yaml
 daemon:
   sleep_time: 10
   # Number of consecutive failed retries of the daemon start or unexpected errors before the daemon exits (0 = never exit)
-  max_retries: 10
+  max_failed_retries: 10
 ```
 
 ## Useful command line options

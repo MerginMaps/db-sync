@@ -1,3 +1,4 @@
+import base64
 import datetime
 import json
 import os
@@ -11,9 +12,19 @@ from config import config
 
 from .conftest import _reset_config
 
-STORED_TOKEN = "Bearer stored"
-NEW_TOKEN = "Bearer new"
-MALFORMED_TOKEN = "Bearer malformed"
+
+def _create_test_token(label: str, validity_hours: float = 12) -> str:
+    """Creates auth token in the format issued by the server (signature is not checked by the client),
+    label makes tokens distinguishable in tests"""
+    expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=validity_hours)
+    payload = json.dumps({"label": label, "expire": str(expire)})
+    return f"Bearer {base64.urlsafe_b64encode(payload.encode()).decode().rstrip('=')}.signature"
+
+
+# token stored in the working directory before DB sync starts
+STORED_TOKEN = _create_test_token("stored")
+# token issued by the (mocked) server on login
+NEW_TOKEN = _create_test_token("new")
 
 
 @pytest.fixture
@@ -32,21 +43,13 @@ def token_config(tmp_path):
 
 @pytest.fixture
 def mergin_client(mocker):
-    """Mocks MerginClient: stored token is valid for `stored_token_validity` hours, login issues NEW_TOKEN
-    valid for 12 hours, MALFORMED_TOKEN can not be decoded. Server response to token validation can be changed
-    via `user_info` mock."""
-    state = mocker.Mock(stored_token_validity=12, user_info=mocker.Mock())
+    """Mocks MerginClient: login issues NEW_TOKEN, server response to token validation
+    can be changed via `user_info` mock"""
+    state = mocker.Mock(user_info=mocker.Mock())
 
     def create_client(url, auth_token=None, login=None, password=None, plugin_version=None):
-        if auth_token == MALFORMED_TOKEN:
-            raise ClientError("Auth token error")
         mc = mocker.MagicMock()
-        now = datetime.datetime.now(datetime.timezone.utc)
-        if auth_token:
-            validity = state.stored_token_validity
-            mc._auth_session = {"token": auth_token, "expire": now + datetime.timedelta(hours=validity)}
-        else:
-            mc._auth_session = {"token": NEW_TOKEN, "expire": now + datetime.timedelta(hours=12)}
+        mc._auth_session = {"token": auth_token or NEW_TOKEN}
         mc.user_info = state.user_info
         return mc
 
@@ -90,15 +93,15 @@ def test_stored_token_is_reused(token_config, mergin_client):
 
 
 @pytest.mark.parametrize(
-    "stored, stored_token_validity, user_info_error",
+    "stored, user_info_error",
     [
-        (None, 12, None),
-        ({"url": "https://other.example.com"}, 12, None),
-        ({"username": "other"}, 12, None),
-        ("not a json", 12, None),
-        ({"token": MALFORMED_TOKEN}, 12, None),
-        ({}, 0.5, None),
-        ({}, 12, ClientError("Unauthorized", http_error=401)),
+        (None, None),
+        ({"url": "https://other.example.com"}, None),
+        ({"username": "other"}, None),
+        ("not a json", None),
+        ({"token": "Bearer malformed"}, None),
+        ({"token": _create_test_token("expiring", validity_hours=0.5)}, None),
+        ({}, ClientError("Unauthorized", http_error=401)),
     ],
     ids=[
         "no-token",
@@ -110,14 +113,13 @@ def test_stored_token_is_reused(token_config, mergin_client):
         "rejected-by-server",
     ],
 )
-def test_stored_token_is_not_used(token_config, mergin_client, stored, stored_token_validity, user_info_error):
+def test_stored_token_is_not_used(token_config, mergin_client, stored, user_info_error):
     """Stored token is not used when missing, issued for other server / user, unreadable, malformed,
     about to expire or rejected by the server - new login is done and its token is stored instead"""
     if isinstance(stored, dict):
         _store_token(token_config, **stored)
     elif stored:
         token_config.write_text(stored)
-    mergin_client.stored_token_validity = stored_token_validity
     mergin_client.user_info.side_effect = user_info_error
 
     mc = dbsync.create_mergin_client()

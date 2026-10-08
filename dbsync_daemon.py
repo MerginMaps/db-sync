@@ -25,7 +25,7 @@ MAX_RETRY_WAIT = 600
 # by the server can not be fixed by retrying and too frequent failed logins may lock the account
 MAX_LOGIN_RETRY_WAIT = 3600
 # default number of consecutive failed retries of startup (login / init) or unexpected errors before the daemon exits
-DEFAULT_MAX_RETRIES = 10
+DEFAULT_MAX_FAILED_RETRIES = 10
 
 
 def is_pyinstaller() -> bool:
@@ -135,7 +135,7 @@ def main():
         validate_config(config)
     except ConfigError as e:
         handle_error_and_exit(e)
-    max_retries = config.get("daemon.max_retries", DEFAULT_MAX_RETRIES)
+    max_failed_retries = config.get("daemon.max_failed_retries", default=DEFAULT_MAX_FAILED_RETRIES, cast="@int")
 
     send_notifications = "notification" in config
 
@@ -175,7 +175,7 @@ def main():
             handle_error_and_exit(e)
 
     else:
-        run_daemon(args, sleep_time, max_retries, send_notifications)
+        run_daemon(args, sleep_time, max_failed_retries, send_notifications)
 
 
 def retry_wait_time(sleep_time: int, failures: int, max_wait: int = MAX_RETRY_WAIT) -> int:
@@ -186,16 +186,17 @@ def retry_wait_time(sleep_time: int, failures: int, max_wait: int = MAX_RETRY_WA
     return min(wait_time, max(sleep_time, max_wait))
 
 
-def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool) -> None:
+def run_daemon(args, sleep_time: int, max_failed_retries: int, send_notifications: bool) -> None:
     """Keep syncing until killed. Failures (including login and init) are retried within
     this process with exponential backoff instead of exiting, so the daemon does not
     log in again on every restart by the container / service manager.
 
     Sync errors after a successful start are retried indefinitely. Startup failures (login, clean, init)
-    and unexpected errors make the daemon exit after `max_retries` consecutive failed retries (0 = never exit)."""
+    and unexpected errors make the daemon exit after `max_failed_retries` consecutive failed retries (0 = never exit).
+    """
     mc = None
-    cleaned = not args.force_init
-    initialized = args.skip_init
+    needs_clean = args.force_init
+    needs_init = not args.skip_init
     started = False
     failures = 0
     fatal_failures = 0
@@ -210,13 +211,13 @@ def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool
                 logging.debug("Logging in to Mergin...")
                 mc = dbsync.create_mergin_client()
 
-            if not cleaned:
+            if needs_clean:
                 dbsync.dbsync_clean(mc)
-                cleaned = True
+                needs_clean = False
 
-            if not initialized:
+            if needs_init:
                 dbsync.dbsync_init(mc)
-                initialized = True
+                needs_init = False
 
             logging.debug("Trying to pull")
             dbsync.dbsync_pull(mc)
@@ -245,15 +246,14 @@ def run_daemon(args, sleep_time: int, max_retries: int, send_notifications: bool
                 error_msg = f"Unexpected error: {e!r}"
                 logging.exception(error_msg)
 
+            giving_up = max_failed_retries and fatal_failures > max_failed_retries
+            if giving_up:
+                error_msg = f"Giving up after {max_failed_retries} retries, the daemon will exit: {error_msg}"
             # server may reject the token before it expires, log in again on the next attempt in such case
-            if mc is not None and dbsync.auth_token_rejected(mc):
+            elif mc is not None and dbsync.auth_token_rejected(mc):
                 logging.warning("Mergin Maps auth token was rejected by the server, going to log in again")
                 dbsync.AuthTokenStore.from_config().remove()
                 mc = None
-
-            giving_up = max_retries and fatal_failures > max_retries
-            if giving_up:
-                error_msg = f"Giving up after {max_retries} retries, the daemon will exit: {error_msg}"
 
             if send_notifications:
                 if "minimal_email_interval" in config.notification:
