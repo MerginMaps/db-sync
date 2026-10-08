@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fix loss of changes when several connections sync different GeoPackages of the same Mergin Maps project: each connection now uses its own working directory (`<working_dir>/<project name>-<modified schema>`) instead of one shared checkout per project (#163). Existing installations re-download the project checkout on the next start; the database schemas are not affected.
+
 ## 2.3.0
 
 - Add `include_tables` connection option to sync only the listed tables (mutually exclusive with `skip_tables`)
