@@ -6,6 +6,7 @@ Copyright (C) 2020 Lutra Consulting
 License: MIT
 """
 
+import datetime
 import getpass
 import glob
 import json
@@ -14,6 +15,7 @@ import shutil
 import string
 import subprocess
 import tempfile
+import typing
 import random
 import uuid
 import re
@@ -37,6 +39,10 @@ from mergin import (
     ClientError,
     InvalidProject,
 )
+from mergin.client import (
+    decode_token_data,
+    TokenError,
+)
 from version import (
     __version__,
 )
@@ -53,6 +59,9 @@ from config import (
 os.environ["GEODIFF_LOGGER_LEVEL"] = "4"  # 0 = nothing, 1 = errors, 2 = warning, 3 = info, 4 = debug
 
 FORCE_INIT_MESSAGE = "Running `dbsync_deamon.py` with `--force-init` should fix the issue."
+
+# auth token with less validity left (in seconds) is not reused and new login is done instead
+TOKEN_MIN_VALIDITY = 3600
 
 
 class DbSyncError(Exception):
@@ -598,16 +607,115 @@ def _validate_local_project_id(
         )
 
 
+def _token_expires_soon(expire: typing.Optional[datetime.datetime]) -> bool:
+    if expire is None:
+        return True
+    delta = expire - datetime.datetime.now(datetime.timezone.utc)
+    return delta.total_seconds() < TOKEN_MIN_VALIDITY
+
+
+class AuthTokenStore:
+    """Stores Mergin Maps auth token in the working directory, so it can be reused
+    when DB sync is restarted instead of new login"""
+
+    def __init__(self, working_dir: str, url: str, username: str):
+        self.path = pathlib.Path(working_dir) / ".mergin_auth.json"
+        self.url = url
+        self.username = username
+
+    @classmethod
+    def from_config(cls) -> "AuthTokenStore":
+        return cls(config.working_dir, config.mergin.url, config.mergin.username)
+
+    def load(self) -> typing.Optional[str]:
+        """Returns stored token if it was issued for this server and user and it is not about to expire"""
+        try:
+            with open(self.path) as f:
+                data = json.load(f)
+            if data["url"] != self.url or data["username"] != self.username:
+                return None
+            token = data["token"]
+            expire = datetime.datetime.fromisoformat(decode_token_data(token)["expire"])
+        except FileNotFoundError:
+            return None
+        except (OSError, ValueError, KeyError, TypeError, TokenError) as e:
+            logging.warning(f"Unable to read stored Mergin Maps auth token: {e}")
+            return None
+        
+        if _token_expires_soon(expire):
+            return None
+        return token
+
+    def save(self, mc: MerginClient) -> None:
+        """Stores auth token of the client"""
+        token = (mc._auth_session or {}).get("token")
+        if not token:
+            return
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            # readable only by the owner (on POSIX systems)
+            with open(os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
+                json.dump({"url": self.url, "username": self.username, "token": token}, f)
+        except OSError as e:
+            logging.warning(f"Unable to store Mergin Maps auth token: {e}")
+
+    def remove(self) -> None:
+        self.path.unlink(missing_ok=True)
+
+
+def auth_token_expires_soon(mc: MerginClient) -> bool:
+    return _token_expires_soon((mc._auth_session or {}).get("expire"))
+
+
+def auth_token_rejected(mc: MerginClient) -> bool:
+    """Checks whether the server rejects auth token of the client although it has not expired yet.
+    Other errors (e.g. server unavailable) are ignored."""
+    try:
+        mc.user_info()
+    except ClientError as e:
+        return e.http_error == 401
+    except Exception:
+        pass
+    return False
+
+
+def _create_mergin_client_from_stored_token() -> typing.Optional[MerginClient]:
+    """Creates MerginClient using stored auth token, returns None if there is no valid stored token"""
+    token_store = AuthTokenStore.from_config()
+    token = token_store.load()
+    if not token:
+        return None
+
+    mc = MerginClient(
+        config.mergin.url,
+        auth_token=token,
+        login=config.mergin.username,
+        password=config.mergin.password,
+        plugin_version=f"DB-sync/{__version__}",
+    )
+    if auth_token_rejected(mc):
+        logging.debug("Stored Mergin Maps auth token was rejected by the server")
+        token_store.remove()
+        return None
+
+    logging.debug("Using stored Mergin Maps auth token")
+    return mc
+
+
 def create_mergin_client():
-    """Create instance of MerginClient"""
+    """Create instance of MerginClient, reusing stored auth token if possible"""
     _check_has_password()
     try:
-        return MerginClient(
-            config.mergin.url,
-            login=config.mergin.username,
-            password=config.mergin.password,
-            plugin_version=f"DB-sync/{__version__}",
-        )
+        mc = _create_mergin_client_from_stored_token()
+        if mc is None:
+            mc = MerginClient(
+                config.mergin.url,
+                login=config.mergin.username,
+                password=config.mergin.password,
+                plugin_version=f"DB-sync/{__version__}",
+            )
+            AuthTokenStore.from_config().save(mc)
+        return mc
     except LoginError as e:
         # this could be auth failure, but could be also server problem (e.g. worker crash)
         raise DbSyncError(
@@ -1492,6 +1600,9 @@ def clean(conn_cfg, mc):
             shutil.rmtree(config.working_dir)
         except FileNotFoundError as e:
             raise DbSyncError("Unable to remove working directory: " + str(e))
+
+        # keep the auth token, so it can be reused after restart (e.g. when --force-init is kept in container command)
+        AuthTokenStore.from_config().save(mc)
 
     if from_db:
         temp_folder = pathlib.Path(config.working_dir).parent / "project_to_delete_sync_file"

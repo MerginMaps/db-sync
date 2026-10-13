@@ -29,3 +29,5 @@ connections:
 daemon:
   # How often to synchronize (in seconds)
   sleep_time: 10
+  # Number of consecutive failed retries of the daemon start (login, init) or unexpected errors before the daemon exits (0 = never exit)
+  max_failed_retries: 10
