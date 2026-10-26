@@ -60,6 +60,27 @@ os.environ["GEODIFF_LOGGER_LEVEL"] = "4"  # 0 = nothing, 1 = errors, 2 = warning
 
 FORCE_INIT_MESSAGE = "Running `dbsync_deamon.py` with `--force-init` should fix the issue."
 
+# --- cooperative stop ---------------------------------------------------------
+# A SIGTERM used to end the process wherever it was, also between "GeoPackage
+# updated" and "base schema updated" inside pull(), which leaves a checkout
+# that only --force-init repairs. The daemon installs request_stop() as the
+# SIGTERM handler; the connection loops below and the daemon's sleep check
+# stop_requested() and the process exits 0 at the next boundary. A pull or
+# push that has started always completes.
+_stop_requested = False
+
+
+def request_stop(signum=None, frame=None):
+    """Signal handler and plain function: ask the loops to stop at the next boundary."""
+    global _stop_requested
+    _stop_requested = True
+    logging.info(f"stop requested (signal {signum}); finishing the current operation first")
+
+
+def stop_requested() -> bool:
+    return _stop_requested
+
+
 # auth token with less validity left (in seconds) is not reused and new login is done instead
 TOKEN_MIN_VALIDITY = 3600
 
@@ -641,7 +662,7 @@ class AuthTokenStore:
         except (OSError, ValueError, KeyError, TypeError, TokenError) as e:
             logging.warning(f"Unable to read stored Mergin Maps auth token: {e}")
             return None
-        
+
         if _token_expires_soon(expire):
             return None
         return token
@@ -1573,6 +1594,9 @@ def dbsync_init(mc):
 
 def dbsync_pull(mc):
     for conn in config.connections:
+        if stop_requested():
+            logging.info("stop requested; not pulling the remaining connections")
+            return
         pull(conn, mc)
 
     logging.debug("Pull done!")
@@ -1580,6 +1604,9 @@ def dbsync_pull(mc):
 
 def dbsync_push(mc):
     for conn in config.connections:
+        if stop_requested():
+            logging.info("stop requested; not pushing the remaining connections")
+            return
         push(conn, mc)
 
     logging.debug("Push done!")

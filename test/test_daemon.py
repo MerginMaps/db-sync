@@ -2,6 +2,7 @@ import argparse
 import datetime
 import os
 import pytest
+import signal
 
 from mergin import ClientError, MerginClient
 
@@ -40,7 +41,7 @@ def run_daemon(mocker):
             if len(sleeps) >= iterations:
                 raise StopDaemon()
 
-        mocker.patch("dbsync_daemon.time.sleep", side_effect=fake_sleep)
+        mocker.patch("dbsync_daemon.sleep_unless_stopped", side_effect=fake_sleep)
         args = argparse.Namespace(force_init=force_init, skip_init=skip_init)
         try:
             dbsync_daemon.run_daemon(args, sleep_time, max_failed_retries, send_notifications)
@@ -222,3 +223,38 @@ def test_daemon_recovers_from_rejected_token(mc: MerginClient, run_daemon, mocke
     assert login.call_count == 2
     assert pull.call_count == 3
     assert pull.spy_exception is None
+
+
+@pytest.fixture(autouse=True)
+def no_stop_request():
+    dbsync._stop_requested = False
+    yield
+    dbsync._stop_requested = False
+
+
+def test_stop_request_during_pull_finishes_it_and_exits_before_push(run_daemon, dbsync_mocks):
+    """SIGTERM only sets a flag (dbsync.request_stop); the daemon completes the step it is in,
+    does not start the next one and exits with code 0 instead of dying mid-pull"""
+    pulled = []
+
+    def pull(mc):
+        dbsync.request_stop(signal.SIGTERM, None)  # the signal arrives while pulling
+        pulled.append("done")  # ...and the pull still completes
+
+    dbsync_mocks.pull.side_effect = pull
+
+    sleeps, exited = run_daemon(iterations=3)
+
+    assert exited
+    assert pulled == ["done"]
+    assert sleeps == []  # no retry wait: a stop is not a failure
+    dbsync_mocks.push.assert_not_called()
+
+
+def test_sleep_unless_stopped_returns_early(mocker):
+    sleep = mocker.patch("dbsync_daemon.time.sleep")
+    dbsync_daemon.sleep_unless_stopped(3)
+    assert sleep.call_count == 3
+    dbsync.request_stop(signal.SIGTERM, None)
+    dbsync_daemon.sleep_unless_stopped(600)
+    assert sleep.call_count == 3
