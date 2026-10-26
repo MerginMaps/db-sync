@@ -10,6 +10,7 @@ import os
 import pathlib
 import platform
 import pprint
+import signal
 import sys
 import time
 
@@ -113,6 +114,10 @@ def main():
 
     args = parser.parse_args()
 
+    # Stop at the next boundary instead of wherever the process happens to
+    # be (see dbsync.request_stop). SIGINT keeps its default: ctrl+c kills.
+    signal.signal(signal.SIGTERM, dbsync.request_stop)
+
     if args.log_file:
         log_file = pathlib.Path(args.log_file)
         setup_logger(log_file, args.log_verbosity)
@@ -186,6 +191,14 @@ def retry_wait_time(sleep_time: int, failures: int, max_wait: int = MAX_RETRY_WA
     return min(wait_time, max(sleep_time, max_wait))
 
 
+def sleep_unless_stopped(seconds: int) -> None:
+    """time.sleep(seconds) in one-second steps, returning early once a stop was requested."""
+    for _ in range(int(seconds)):
+        if dbsync.stop_requested():
+            return
+        time.sleep(1)
+
+
 def run_daemon(args, sleep_time: int, max_failed_retries: int, send_notifications: bool) -> None:
     """Keep syncing until killed. Failures (including login and init) are retried within
     this process with exponential backoff instead of exiting, so the daemon does not
@@ -203,6 +216,10 @@ def run_daemon(args, sleep_time: int, max_failed_retries: int, send_notification
     last_email_sent = None
 
     while True:
+        if dbsync.stop_requested():
+            logging.info("stop requested; exiting cleanly between cycles")
+            sys.exit(0)
+
         print(datetime.datetime.now())
         login_failed = False
 
@@ -221,6 +238,10 @@ def run_daemon(args, sleep_time: int, max_failed_retries: int, send_notification
 
             logging.debug("Trying to pull")
             dbsync.dbsync_pull(mc)
+
+            if dbsync.stop_requested():
+                logging.info("stop requested; exiting cleanly after pull")
+                sys.exit(0)
 
             logging.debug("Trying to push")
             dbsync.dbsync_push(mc)
@@ -278,7 +299,7 @@ def run_daemon(args, sleep_time: int, max_failed_retries: int, send_notification
         else:
             wait_time = sleep_time
             logging.debug("Going to sleep")
-        time.sleep(wait_time)
+        sleep_unless_stopped(wait_time)
 
 
 if __name__ == "__main__":
