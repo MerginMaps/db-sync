@@ -238,8 +238,8 @@ def test_stop_request_during_pull_finishes_it_and_exits_before_push(run_daemon, 
     pulled = []
 
     def pull(mc):
-        dbsync.request_stop(signal.SIGTERM, None)   # the signal arrives while pulling
-        pulled.append("done")                       # ...and the pull still completes
+        dbsync.request_stop(signal.SIGTERM, None)  # the signal arrives while pulling
+        pulled.append("done")  # ...and the pull still completes
 
     dbsync_mocks.pull.side_effect = pull
 
@@ -247,7 +247,7 @@ def test_stop_request_during_pull_finishes_it_and_exits_before_push(run_daemon, 
 
     assert exited
     assert pulled == ["done"]
-    assert sleeps == []                             # no retry wait: a stop is not a failure
+    assert sleeps == []  # no retry wait: a stop is not a failure
     dbsync_mocks.push.assert_not_called()
 
 

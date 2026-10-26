@@ -80,6 +80,7 @@ def request_stop(signum=None, frame=None):
 def stop_requested() -> bool:
     return _stop_requested
 
+
 # auth token with less validity left (in seconds) is not reused and new login is done instead
 TOKEN_MIN_VALIDITY = 3600
 
@@ -661,7 +662,7 @@ class AuthTokenStore:
         except (OSError, ValueError, KeyError, TypeError, TokenError) as e:
             logging.warning(f"Unable to read stored Mergin Maps auth token: {e}")
             return None
-        
+
         if _token_expires_soon(expire):
             return None
         return token
