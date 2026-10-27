@@ -320,6 +320,61 @@ def _geodiff_list_changes_details(
     return out["geodiff"]
 
 
+def _entry_row_key(entry):
+    """The values that identify a changeset entry's row, by column position.
+
+    An update carries old and new values for the changed columns and only an
+    old value for the primary key columns; a delete carries every old value.
+    """
+    key = {c["column"]: c.get("old") for c in entry.get("changes", []) if "old" in c and "new" not in c}
+    if not key:
+        key = {c["column"]: c.get("old") for c in entry.get("changes", []) if "old" in c}
+    return key
+
+
+def _lost_field_updates(our_changes, their_changes):
+    """Rows deleted in the database since base (our changeset) that the server's
+    changeset (theirs) updates. The rebase keeps our delete and the server's
+    update ends up nowhere: not in the database, not in the conflicts file
+    (geodiff records only our update vs their delete). Returns
+    [(table, {column: key value}, [(column, new value), ...]), ...]."""
+    deleted = {}
+    for entry in our_changes:
+        if entry.get("type") == "delete":
+            olds = {c["column"]: c.get("old") for c in entry.get("changes", []) if "old" in c}
+            deleted.setdefault(entry.get("table"), []).append(olds)
+    lost = []
+    for entry in their_changes:
+        if entry.get("type") != "update" or entry.get("table") not in deleted:
+            continue
+        key = _entry_row_key(entry)
+        for olds in deleted[entry["table"]]:
+            if key and all(olds.get(column) == value for column, value in key.items()):
+                values = [(c["column"], c.get("new")) for c in entry.get("changes", []) if "new" in c]
+                lost.append((entry["table"], key, values))
+                break
+    return lost
+
+
+def _report_lost_field_updates(base2our, base2their):
+    """Log a WARNING per field update that the rebase is about to drop (see _lost_field_updates)."""
+    try:
+        lost = _lost_field_updates(
+            _geodiff_list_changes_details(base2our),
+            _geodiff_list_changes_details(base2their),
+        )
+    except Exception as e:  # noqa: BLE001 - reporting must not break the pull
+        logging.warning(f"could not compare the changesets for lost field updates: {e}")
+        return
+    for table, key, values in lost:
+        key_text = ", ".join(f"column {column} = {value!r}" for column, value in sorted(key.items()))
+        values_text = "; ".join(f"column {column}: {str(value)[:80]!r}" for column, value in values) or "no values"
+        logging.warning(
+            f"field update lost: table {table} row ({key_text}) was deleted in the database; "
+            f"the update from Mergin Maps ({values_text}) is dropped with the row"
+        )
+
+
 def _geodiff_list_changes_summary(
     changeset,
 ):
@@ -641,7 +696,7 @@ class AuthTokenStore:
         except (OSError, ValueError, KeyError, TypeError, TokenError) as e:
             logging.warning(f"Unable to read stored Mergin Maps auth token: {e}")
             return None
-        
+
         if _token_expires_soon(expire):
             return None
         return token
@@ -930,6 +985,9 @@ def pull(conn_cfg, mc):
         )
     else:
         logging.debug("Applying new version [WITH rebase]")
+        # A database delete of a row the field updated leaves no record
+        # anywhere once rebased: say so before it happens.
+        _report_lost_field_updates(tmp_base2our, tmp_base2their)
         tmp_conflicts = os.path.join(tmp_dir, f"{project_name}-dbsync-pull-conflicts")
         _geodiff_rebase(
             conn_cfg.driver,
