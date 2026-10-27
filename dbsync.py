@@ -696,7 +696,7 @@ class AuthTokenStore:
         except (OSError, ValueError, KeyError, TypeError, TokenError) as e:
             logging.warning(f"Unable to read stored Mergin Maps auth token: {e}")
             return None
-        
+
         if _token_expires_soon(expire):
             return None
         return token
