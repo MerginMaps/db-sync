@@ -2,12 +2,12 @@
 
 ## Windows executable
 
-For Windows we provide pre-built exe file for download since version 2.0 - there are [download links attached to releases](https://github.com/MerginMaps/mergin-db-sync/releases).
+For Windows we provide pre-built exe file for download since version 2.0 - there are [download links attached to releases](https://github.com/MerginMaps/db-sync/releases).
 
-To run the tool, open the terminal and run the executable with your config file (`config.yaml`):
+To run the tool, open the terminal in the folder with the downloaded `dbsync_daemon.exe` and run it with your config file (`config.yaml`):
 
-```bash
-mergin-db-sync.exe config.yaml
+```powershell
+.\dbsync_daemon.exe config.yaml
 ```
 
 ## Docker
@@ -29,7 +29,7 @@ The container can be used also on Windows, see [instructions on how to use with 
 
 To manually install and build the required libraries follow these steps:
 
-1. Download this git repo: `git clone https://github.com/MerginMaps/mergin-db-sync.git`
+1. Download this git repo: `git clone https://github.com/MerginMaps/db-sync.git`
 
 1. Install Python dependencies: `pip3 install -r requirements.txt`
 

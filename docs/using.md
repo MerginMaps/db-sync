@@ -2,9 +2,7 @@
 
 ## How does it work
 
-A single GeoPackage file in a Mergin Maps project is treated as an equivalent of a database schema - both
-GeoPackage and a database schema can contain  multiple tables with data - and the DB Sync tool keeps
-content of the tables in the database and in the GeoPackage the same.
+A single GeoPackage file in a Mergin Maps project is treated as an equivalent of a database schema - both GeoPackage and a database schema can contain  multiple tables with data - and the DB Sync tool keeps content of the tables in the database and in the GeoPackage the same.
 
 A project with several GeoPackage files needs one connection per file (see the `connections` list in the
 configuration). Each connection keeps its own local checkout of the project in
@@ -21,14 +19,11 @@ More technical details:
   (called "base" schema). This schema contains another copy of the data and it should not be touched,
   otherwise the sync may get to invalid state.
 - the "base" schema contains the same data as the most recently seen project version in Mergin Maps. Whenever
-  the tool attempts to synchronize data, it looks up any pending changes in the database by comparing data
-  between the "base" schema and the "modified" schema (used by editing) - if any changes are detacted,
-  they will be pushed to the appropriate GeoPackage in Mergin Maps project.
+  the tool attempts to synchronize data, it looks up any pending changes in the database by comparing data between the "base" schema and the "modified" schema (used by editing) - if any changes are detacted, they will be pushed to the appropriate GeoPackage in Mergin Maps project.
 
 ## Sample configuration file
 
-The configuration of the tool is done using a simple YAML file - that file is then passed as a command line
-argument to the DB Sync tool.
+The configuration of the tool is done using a simple YAML file - that file is then passed as a command line argument to the DB Sync tool.
 
 Here's a sample configuration:
 
