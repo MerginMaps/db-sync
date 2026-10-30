@@ -7,7 +7,7 @@ Information related to development of DB Sync.
 To run automatic tests:
 
 ```bash
-cd mergin-db-sync
+cd db-sync
 export TEST_DB_CONNINFO=<conninfo>          # connection info for DB
 export TEST_MERGIN_URL=<url>                # testing server
 export TEST_API_USERNAME=<username>
